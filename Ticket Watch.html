@@ -402,6 +402,7 @@
     padding:8px 10px;outline:none;
   }
   .notes-textarea:focus{border-color:var(--teal);}
+  .price-green{color:var(--price-green,#4ade80);font-weight:600;}
   .price-preview-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .price-preview-chip{
     font-family:'IBM Plex Mono',monospace;font-size:11px;
@@ -423,6 +424,10 @@
     background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
     color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;
     padding:6px 8px;outline:none;
+  }
+  .price-formatted{
+    flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
+    color:var(--price-green,#4ade80);white-space:nowrap;min-width:52px;
   }
   .price-row input:focus{border-color:var(--teal);}
   .price-updated{
@@ -473,6 +478,41 @@
   }
   .sync-status.error{color:var(--coral);}
   .sync-status.ok{color:var(--teal);}
+
+  /* ---------- New Sheet modal ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,.6);
+    display:flex;align-items:center;justify-content:center;
+    z-index:60;padding:20px;
+  }
+  .modal-box{
+    width:100%;max-width:380px;
+    background:var(--card);
+    border:1px solid var(--hairline);
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 24px 48px rgba(0,0,0,.5);
+  }
+  .modal-title{
+    font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.02em;
+    margin:0 0 14px;color:var(--text);
+  }
+  .modal-box input[type=text]{
+    width:100%;
+    background:var(--bg);border:1px solid var(--hairline);border-radius:8px;
+    color:var(--text);font-family:'Inter',sans-serif;font-size:14px;
+    padding:10px 12px;outline:none;margin:6px 0 16px;
+  }
+  .modal-box input[type=text]:focus{border-color:var(--amber);}
+  .modal-checkbox{
+    display:flex;align-items:flex-start;gap:9px;
+    font-family:'Inter',sans-serif;font-size:13px;color:var(--text);
+    cursor:pointer;line-height:1.4;margin-bottom:18px;
+  }
+  .modal-checkbox input{margin-top:3px;flex:0 0 auto;accent-color:var(--amber);width:16px;height:16px;cursor:pointer;}
+  .modal-checkbox-hint{color:var(--muted);font-size:12px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
 
   /* ---------- Empty state ---------- */
   .empty{
@@ -537,7 +577,7 @@
         <button class="col-btn" id="colPlus" type="button" aria-label="More columns">+</button>
       </div>
       <button class="filter-btn" id="starFilterBtn" title="Show starred only" style="display:none;">★ Starred only</button>
-      <button class="btn primary" id="uploadBtn">Upload CSV</button>
+      <button class="btn primary" id="uploadBtn">Add CSV</button>
       <button class="btn ghost" id="clearBtn" style="display:none;">Clear data</button>
       <input type="file" id="fileInput" accept=".csv">
       <div class="sync-wrap">
@@ -563,12 +603,28 @@
     <div class="empty" id="emptyState">
       <div class="ticket-icon" id="emptyIcon">🎟️</div>
       <h2 id="emptyHeading">This sheet is empty</h2>
-      <p id="emptyBody">Upload a CSV to fill this sheet. After that, each new upload creates its own tab named after the file, so nothing gets overwritten. Use the menu above to search, sort, or switch sheets.</p>
+      <p id="emptyBody">Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.</p>
       <div class="drop-zone" id="dropZone">Drag a CSV here, or use the menu above to upload</div>
     </div>
     <div id="listRoot"></div>
   </div>
 </main>
+
+<div class="modal-overlay" id="addSheetModal" style="display:none;">
+  <div class="modal-box">
+    <h3 class="modal-title">New Sheet</h3>
+    <p class="notes-label">Sheet name</p>
+    <input type="text" id="newSheetNameInput" placeholder="e.g. Fall Tour">
+    <label class="modal-checkbox">
+      <input type="checkbox" id="newSheetUsOpenCheckbox">
+      <span>🎾 US Open sheet <span class="modal-checkbox-hint">— Day/Night columns, star/pin, price tracking, uploads always merge</span></span>
+    </label>
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelAddSheetBtn" type="button">Cancel</button>
+      <button class="btn primary" id="confirmAddSheetBtn" type="button">Create</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $ = sel => document.querySelector(sel);
@@ -597,6 +653,11 @@ const eyebrowLabel = $('#eyebrowLabel');
 const emptyIcon = $('#emptyIcon');
 const emptyHeading = $('#emptyHeading');
 const emptyBody = $('#emptyBody');
+const addSheetModal = $('#addSheetModal');
+const newSheetNameInput = $('#newSheetNameInput');
+const newSheetUsOpenCheckbox = $('#newSheetUsOpenCheckbox');
+const cancelAddSheetBtn = $('#cancelAddSheetBtn');
+const confirmAddSheetBtn = $('#confirmAddSheetBtn');
 
 let allEvents = [];
 let sheets = [];
@@ -624,14 +685,14 @@ function updateModeUI(){
   const isUsOpen = mode === 'usopen';
   eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : 'Ticket List';
   starFilterBtn.style.display = isUsOpen ? 'inline-flex' : 'none';
-  uploadBtn.textContent = isUsOpen ? 'Add CSV' : 'Upload CSV';
+  uploadBtn.textContent = 'Add CSV';
   emptyIcon.textContent = isUsOpen ? '🎾' : '🎟️';
   if(isUsOpen){
     emptyHeading.textContent = 'No sessions yet';
     emptyBody.textContent = 'Add a CSV to get started — sessions split automatically into Day and Night columns. Every future upload adds on top of what\'s here; duplicates are skipped, so it\'s safe to re-add the same export as it updates.';
   } else {
     emptyHeading.textContent = 'This sheet is empty';
-    emptyBody.textContent = 'Upload a CSV to fill this sheet. After that, each new upload creates its own tab named after the file, so nothing gets overwritten.';
+    emptyBody.textContent = 'Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.';
   }
 }
 
@@ -683,6 +744,11 @@ const SYNC_POLL_MS = 20000;
 const lastPushedSnapshot = {};   // sheetName -> JSON string we last sent
 const lastAppliedSnapshot = {};  // sheetName -> JSON string we last pulled in
 
+// Pre-filled with a working deployment so sync is on by default — no
+// manual "paste URL and click Connect" step needed. Change or blank this
+// out (and use the ☁ Sync box instead) to point at a different sheet.
+const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbxjs98Uj7o2LzyQoWlKqdgEOJrxeE0PAm4_8U3vUII4aWraBmkkYgCjDMMKXoywwAt9/exec';
+
 function setSyncStatus(text, kind){
   syncStatus.textContent = text;
   syncStatus.classList.remove('ok', 'error');
@@ -698,19 +764,34 @@ function updateSyncButtonState(){
 }
 
 async function loadSyncSettings(){
+  let url = null;
   try{
     const res = await storageGet('ui:syncUrl');
-    if(res && res.value){
-      syncUrl = res.value;
-      syncUrlInput.value = syncUrl;
-      updateSyncButtonState();
-      setSyncStatus('Connected. Syncing…', 'ok');
-      // Push what's already loaded locally first, so a poll can never
-      // mistake "remote hasn't caught up yet" for "everything was deleted".
-      await pushActiveSheetToRemote();
-      startSyncPolling();
+    if(res && res.value) url = res.value;
+  }catch(e){ /* nothing stored yet */ }
+
+  if(!url && DEFAULT_SYNC_URL){
+    let disabled = false;
+    try{
+      const d = await storageGet('ui:syncDisabled');
+      disabled = !!(d && d.value);
+    }catch(e){ /* ignore */ }
+    if(!disabled){
+      url = DEFAULT_SYNC_URL;
+      try{ await storageSet('ui:syncUrl', url); }catch(e){ /* ignore */ }
     }
-  }catch(e){ /* not connected */ }
+  }
+
+  if(url){
+    syncUrl = url;
+    syncUrlInput.value = syncUrl;
+    updateSyncButtonState();
+    setSyncStatus('Connected. Syncing…', 'ok');
+    // Push what's already loaded locally first, so a poll can never
+    // mistake "remote hasn't caught up yet" for "everything was deleted".
+    await pushActiveSheetToRemote();
+    startSyncPolling();
+  }
 }
 
 function startSyncPolling(){
@@ -740,6 +821,7 @@ syncConnectBtn.addEventListener('click', async () => {
     if(!data || !Array.isArray(data.events)){ throw new Error('Unexpected response'); }
     syncUrl = url;
     await storageSet('ui:syncUrl', url);
+    await storageDelete('ui:syncDisabled');
     updateSyncButtonState();
     setSyncStatus('Connected. Syncing…', 'ok');
     // Push first — this site's data is the source of truth on connect.
@@ -756,6 +838,7 @@ syncConnectBtn.addEventListener('click', async () => {
 syncDisconnectBtn.addEventListener('click', async () => {
   syncUrl = null;
   await storageDelete('ui:syncUrl');
+  await storageSet('ui:syncDisabled', '1'); // remembered so the default URL doesn't silently reconnect next visit
   stopSyncPolling();
   updateSyncButtonState();
   setSyncStatus('Not connected.');
@@ -1142,18 +1225,6 @@ function makeSheetId(){
   return 'sh_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
-// Turns an uploaded filename into a readable sheet name, avoiding
-// collisions with sheets that already exist.
-function sheetNameFromFile(file){
-  const base = (file && file.name ? file.name.replace(/\.csv$/i, '') : '').trim();
-  let name = base || 'Sheet';
-  const existing = new Set(sheets.map(s => s.name));
-  if(!existing.has(name)) return name;
-  let n = 2;
-  while(existing.has(`${name} (${n})`)) n++;
-  return `${name} (${n})`;
-}
-
 async function persistSheetsIndex(){
   await storageSet('sheets:index', JSON.stringify(sheets));
 }
@@ -1294,35 +1365,20 @@ async function saveEventsToActiveSheet(events){
   pushActiveSheetToRemote();
 }
 
-// 'standard' sheets: uploading a CSV creates a new sheet named after the
-// file (unless the current sheet is still empty), so nothing gets
-// overwritten. 'usopen' sheets: uploads always merge into the sheet
-// you're on, deduping by event identity — matches how US Open sessions
-// naturally accumulate over time.
+// Every upload adds to whatever's on the active sheet — matching events
+// (by ticket link, or name+venue+date) get their data refreshed, brand-new
+// ones get appended, and true duplicates are skipped. Notes, stars, pins,
+// and prices are keyed by event identity too, so they're untouched by an
+// upload even when that event's other fields change. Uploads never create
+// a new sheet automatically anymore — use "+" for that, on purpose.
 async function handleCsvUpload(file, text){
   const records = recordsFromCSV(text);
   if(!records.length){
     alert('That CSV parsed but produced no rows. Check that it matches the expected format.');
     return;
   }
-
-  if(activeSheetMode() === 'usopen'){
-    const merged = mergeEvents(allEvents, records);
-    await saveEventsToActiveSheet(merged);
-    return;
-  }
-
-  if(allEvents.length === 0){
-    await saveEventsToActiveSheet(records);
-    return;
-  }
-
-  const id = makeSheetId();
-  const name = sheetNameFromFile(file);
-  sheets.push({ id, name, mode: 'standard', createdAt: Date.now() });
-  await persistSheetsIndex();
-  await setActiveSheet(id);
-  await saveEventsToActiveSheet(records);
+  const merged = mergeEvents(allEvents, records);
+  await saveEventsToActiveSheet(merged);
 }
 
 async function clearActiveSheetEvents(){
@@ -1338,16 +1394,38 @@ async function clearActiveSheetEvents(){
   pushActiveSheetToRemote();
 }
 
-async function addSheet(){
-  const isUsOpen = confirm('Create this as a US Open sheet?\n\nOK = US Open (Day/Night columns, star/pin, price tracking, merge-on-upload)\nCancel = Standard ticket list (grouped by date, one upload replaces the sheet)');
+function openAddSheetModal(){
+  newSheetNameInput.value = `Sheet ${sheets.length + 1}`;
+  newSheetUsOpenCheckbox.checked = false;
+  addSheetModal.style.display = 'flex';
+  newSheetNameInput.focus();
+  newSheetNameInput.select();
+}
+function closeAddSheetModal(){
+  addSheetModal.style.display = 'none';
+}
+
+async function createSheetFromModal(){
+  const isUsOpen = newSheetUsOpenCheckbox.checked;
   const defaultName = isUsOpen ? 'US Open' : `Sheet ${sheets.length + 1}`;
-  const name = prompt('Name this sheet', defaultName);
-  if(name === null) return;
-  const trimmed = name.trim() || defaultName;
+  const trimmed = newSheetNameInput.value.trim() || defaultName;
   const id = makeSheetId();
   sheets.push({ id, name: trimmed, mode: isUsOpen ? 'usopen' : 'standard', createdAt: Date.now() });
   await persistSheetsIndex();
+  closeAddSheetModal();
   await setActiveSheet(id);
+}
+
+cancelAddSheetBtn.addEventListener('click', closeAddSheetModal);
+confirmAddSheetBtn.addEventListener('click', createSheetFromModal);
+addSheetModal.addEventListener('click', e => { if(e.target === addSheetModal) closeAddSheetModal(); });
+newSheetNameInput.addEventListener('keydown', e => { if(e.key === 'Enter') createSheetFromModal(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && addSheetModal.style.display !== 'none') closeAddSheetModal();
+});
+
+function addSheet(){
+  openAddSheetModal();
 }
 
 async function renameSheet(id){
@@ -1625,6 +1703,21 @@ function hasNotesContent(ann){
   return !!(ann.note && ann.note.trim()) || (ann.sections && ann.sections.some(s => (s.label && s.label.trim()) || (s.price && s.price.trim())));
 }
 
+// Formats a price value: pure numbers get "$" + comma grouping (and keep
+// decimals if the person typed any); anything containing a letter (e.g.
+// "8.5k", "make offer") is left exactly as typed — no "$" forced onto it.
+function formatPriceDisplay(raw){
+  const trimmed = (raw || '').trim();
+  if(!trimmed) return '';
+  if(/[a-zA-Z]/.test(trimmed)) return trimmed;
+  const cleaned = trimmed.replace(/[$,\s]/g, '');
+  const num = parseFloat(cleaned);
+  if(isNaN(num)) return trimmed;
+  const hasDecimal = cleaned.includes('.');
+  const formatted = num.toLocaleString('en-US', hasDecimal ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 });
+  return '$' + formatted;
+}
+
 function notesPreviewHtml(ann){
   const parts = [];
   if(ann.note && ann.note.trim()){
@@ -1635,7 +1728,7 @@ function notesPreviewHtml(ann){
   const priced = (ann.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
   if(priced.length){
     const shown = priced.slice(0, 5);
-    const chips = shown.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b> ${escapeHtml(s.price || '—')}</span>`).join('');
+    const chips = shown.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b> <span class="price-green">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
     const more = priced.length > shown.length ? `<span class="price-preview-chip more">+${priced.length - shown.length} more</span>` : '';
     parts.push(`<div class="price-preview-row">${chips}${more}</div>`);
   }
@@ -1649,6 +1742,7 @@ function priceRowHtml(key, row){
     <div class="price-row" data-row-id="${row.id}">
       <input type="text" class="price-label" placeholder="Section (e.g. Floor)" value="${escapeHtml(row.label)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="label">
       <input type="text" class="price-value" placeholder="Price" value="${escapeHtml(row.price)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="price">
+      <span class="price-formatted" data-formatted-for="${row.id}">${escapeHtml(formatPriceDisplay(row.price))}</span>
       <span class="price-updated">${updated ? 'Upd. ' + updated : ''}</span>
       <button type="button" class="price-remove" data-key="${escapeHtml(key)}" data-row="${row.id}" title="Remove row">×</button>
     </div>`;
@@ -1965,6 +2059,10 @@ listRoot.addEventListener('input', e => {
       const stamp = panel.querySelector(`.price-row[data-row-id="${rowId}"] .price-updated`);
       if(stamp){
         stamp.textContent = 'Upd. ' + new Date(row.updatedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+      }
+      if(field === 'price'){
+        const formattedEl = panel.querySelector(`.price-formatted[data-formatted-for="${rowId}"]`);
+        if(formattedEl) formattedEl.textContent = formatPriceDisplay(row.price);
       }
       saveNotesSoon();
     }
