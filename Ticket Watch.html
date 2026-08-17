@@ -872,7 +872,7 @@ async function pushActiveSheetToRemote(){
     const res = await fetch(syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight Apps Script can't answer
-      body: JSON.stringify({ action: 'replaceSheet', appSheet: name, events: payloadEvents })
+      body: JSON.stringify({ action: 'replaceSheet', appSheet: name, sheetMode: activeSheetMode(), events: payloadEvents })
     });
     const data = await res.json();
     if(data && Array.isArray(data.events)){
@@ -965,15 +965,21 @@ async function pollRemote(){
 }
 
 // Writes remote data for one app-sheet into local storage (creating the
-// sheet locally if it doesn't exist yet), and refreshes the view if it's
-// the sheet currently on screen. Populates both the simple-notes and full
-// annotations stores regardless of mode, so nothing is lost if the sheet's
-// mode differs from what the remote data implies.
+// sheet locally if it doesn't exist yet, using the mode carried in the
+// remote data itself — not guessed — so a fresh browser reconstructs the
+// right layout/features). Populates both the simple-notes and full
+// annotations stores regardless of mode, so nothing is lost either way.
 async function applyRemoteSheet(name, remoteEvents){
+  const remoteMode = (remoteEvents[0] && remoteEvents[0].sheetMode === 'usopen') ? 'usopen' : 'standard';
   let sheet = sheets.find(s => s.name === name);
   if(!sheet){
-    sheet = { id: makeSheetId(), name, mode: 'standard', createdAt: Date.now() };
+    sheet = { id: makeSheetId(), name, mode: remoteMode, createdAt: Date.now() };
     sheets.push(sheet);
+    await persistSheetsIndex();
+    renderTabs();
+  } else if(sheet.mode !== remoteMode){
+    // The spreadsheet is the source of truth for type once synced.
+    sheet.mode = remoteMode;
     await persistSheetsIndex();
     renderTabs();
   }
@@ -1009,6 +1015,7 @@ async function applyRemoteSheet(name, remoteEvents){
     allEvents = localEvents;
     notes = localNotes;
     annotations = localAnnotations;
+    updateModeUI();
     render();
   }
 }
