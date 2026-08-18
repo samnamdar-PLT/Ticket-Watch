@@ -237,6 +237,13 @@
     padding:3px 7px;border-radius:4px;
     transform:translateY(-1px);
   }
+  .day-heading.collapsible-heading{cursor:pointer;user-select:none;gap:6px;}
+  .day-heading.collapsible-heading:hover .heading-label{opacity:.8;}
+  .collapse-caret{flex:0 0 auto;opacity:.55;transition:transform .15s ease;}
+  .day-heading.collapsible-heading.collapsed .collapse-caret{transform:rotate(-90deg);}
+  .day-heading.collapsible-heading.collapsed + .day-grid{display:none;}
+  .day-heading.collapsible-heading.collapsed{padding-bottom:10px;margin-bottom:2px;border-bottom:1px dashed var(--hairline);}
+  .pinned-grid{margin-bottom:26px;padding-bottom:22px;border-bottom:1px solid var(--hairline);}
 
   .ticket{
     position:relative;
@@ -270,7 +277,7 @@
   .dn-merged{padding-bottom:2px;}
   .dn-merged-date{
     font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.02em;
-    color:var(--amber);padding:12px 14px 6px;
+    color:var(--text);padding:12px 14px 6px;
   }
   .shift-block{
     border-top:1px solid var(--hairline);
@@ -287,12 +294,14 @@
   }
   .shift-tag-day{color:var(--day-color);}
   .shift-tag-night{color:var(--night-color);}
+  .shift-block.shift-day .ev-time{color:var(--day-color);}
+  .shift-block.shift-night .ev-time{color:var(--night-color);}
   .shift-block-icons{display:flex;gap:2px;}
   .shift-block-icons .icon-btn{width:28px;height:28px;}
   .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
-  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:165px;}
+  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:175px;}
   .shift-divider{height:0;}
   .filter-btn{
     display:flex;align-items:center;gap:6px;
@@ -319,7 +328,7 @@
     transition:background .15s ease, color .15s ease, border-color .15s ease;
   }
   .icon-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
-  .icon-btn.notes-btn.has-note{color:var(--amber);}
+  .icon-btn.notes-btn.has-note{color:var(--teal);}
   .icon-btn.notes-btn.active{color:var(--teal);background:var(--card-hover);border-color:var(--hairline);}
   .icon-btn.rating-btn{width:auto;padding:0 8px;gap:4px;}
   .icon-btn.rating-btn.active{color:var(--rating);}
@@ -337,11 +346,11 @@
   }
   .rating-flame:hover{border-color:var(--rating);color:var(--rating);}
   .rating-flame.filled{color:var(--rating);border-color:var(--rating);background:rgba(255,122,61,.1);}
-  .ticket-main{display:flex;}
+  .ticket-main{display:flex;flex-wrap:wrap;}
 
   .ticket-info{
-    flex:1 1 auto;
-    min-width:0;
+    flex:1 1 160px;
+    min-width:160px;
     padding:8px 16px 12px;
     display:flex;
     flex-direction:column;
@@ -349,7 +358,7 @@
     justify-content:center;
   }
   .ev-name{
-    font-size:16px;font-weight:700;color:var(--text);
+    font-size:16px;font-weight:700;color:var(--teal);
     line-height:1.3;
   }
   .ev-venue{
@@ -398,18 +407,18 @@
     gap:4px;
     padding:8px 10px 12px;
     justify-content:center;
-    min-width:180px;
+    min-width:190px;
   }
   .link-row{display:flex;gap:4px;}
   .link-btn{
     flex:1 1 auto;
     min-width:0;
     display:flex;align-items:center;justify-content:space-between;
-    gap:6px;
+    gap:5px;
     font-family:'Inter',sans-serif;
-    font-size:12.5px;font-weight:600;
+    font-size:12px;font-weight:600;
     text-decoration:none;
-    padding:5px 8px;
+    padding:5px 7px;
     border-radius:6px;
     border:1px solid transparent;
     color:#141316;
@@ -425,7 +434,7 @@
   .copy-btn{
     flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;
-    width:40px;
+    width:52px;
     border-radius:6px;
     border:1px solid var(--hairline);
     background:var(--card-hover);
@@ -665,6 +674,10 @@
         <button class="col-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
         <button class="col-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
       </div>
+      <div class="col-stepper" title="Expand / collapse all sections">
+        <button class="col-btn" id="expandAllBtn" type="button" aria-label="Expand all sections" title="Expand all sections">▾</button>
+        <button class="col-btn" id="collapseAllBtn" type="button" aria-label="Collapse all sections" title="Collapse all sections">▸</button>
+      </div>
       <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">🔥 Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
@@ -766,6 +779,8 @@ const hotFilterBtn = $('#hotFilterBtn');
 const newFilterBtn = $('#newFilterBtn');
 const undoBtn = $('#undoBtn');
 const redoBtn = $('#redoBtn');
+const expandAllBtn = $('#expandAllBtn');
+const collapseAllBtn = $('#collapseAllBtn');
 const markSeenBtn = $('#markSeenBtn');
 const eyebrowLabel = $('#eyebrowLabel');
 const emptyIcon = $('#emptyIcon');
@@ -788,6 +803,9 @@ let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections} — 
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let hotOnly = false; // filter: only show events with a rating > 0
 let newOnly = false; // filter: only show events flagged New by the last upload
+let collapsedSections = new Set(); // heading text -> collapsed. Click a heading to toggle.
+let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
+let searchModeActive = false;
 let columnCount = 3;
 const MIN_COLS = 1, MAX_COLS = 6;
 let remoteCache = []; // every raw row from the last successful fetch, across all sheets — this IS the data; nothing is cached beyond this in-memory copy
@@ -855,6 +873,15 @@ clearPastBtn.addEventListener('click', () => { clearPastEvents(); });
 
 undoBtn.addEventListener('click', () => { undo(); });
 redoBtn.addEventListener('click', () => { redo(); });
+
+expandAllBtn.addEventListener('click', () => {
+  collapsedSections.clear();
+  render();
+});
+collapseAllBtn.addEventListener('click', () => {
+  listRoot.querySelectorAll('.collapsible-heading').forEach(el => collapsedSections.add(el.dataset.section));
+  render();
+});
 
 async function markAllSeen(){
   const anyNew = allEvents.some(ev => getAnnotation(eventKey(ev)).isNew);
@@ -1717,6 +1744,9 @@ function createSheetFromModal(){
   hotFilterBtn.classList.remove('active');
   newOnly = false;
   newFilterBtn.classList.remove('active');
+  collapsedSections = new Set();
+  savedCollapsedSections = null;
+  searchModeActive = false;
   resetUndoHistory();
   syncActiveSheetFromCache();
   renderTabs();
@@ -1743,6 +1773,9 @@ function setActiveSheet(name){
   hotFilterBtn.classList.remove('active');
   newOnly = false;
   newFilterBtn.classList.remove('active');
+  collapsedSections = new Set();
+  savedCollapsedSections = null;
+  searchModeActive = false;
   resetUndoHistory();
   syncActiveSheetFromCache();
   renderTabs();
@@ -1980,7 +2013,7 @@ function renderStandard(){
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
   if(pinned.length){
-    htmlParts.push(`<div class="day-heading">📌 Pinned</div><div class="day-grid">${pinned.map(cardHtmlStandard).join('')}</div>`);
+    htmlParts.push(`${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid">${pinned.map(cardHtmlStandard).join('')}</div>`);
   }
   let pendingCards = [];
   const flushGrid = () => {
@@ -1994,7 +2027,7 @@ function renderStandard(){
     const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
     if(g.showHeading){
       flushGrid();
-      htmlParts.push(`<div class="day-heading">${escapeHtml(g.heading)}${isToday ? '<span class="tag-today">Today</span>' : ''}</div>`);
+      htmlParts.push(dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : ''));
     }
     g.events.forEach(ev => pendingCards.push(cardHtmlStandard(ev)));
   });
@@ -2005,11 +2038,19 @@ function renderStandard(){
 // Full ticket card for standard sheets: name as the headline, date/time,
 // venue, links, and the same rating/pin/notes/prices toolbar every sheet
 // gets — the only thing that's US-Open-specific is the Day/Night split.
+// "Aug 17, 5:30 PM (Monday)" — month/day and time lead since those are
+// what you're scanning for, full weekday name trails in parens for
+// context without competing for attention.
+function formatDateTimeHeadline(dateObj){
+  const d = new Date(dateObj);
+  const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${monthDay}, ${time} (${weekday})`;
+}
+
 function cardHtmlStandard(ev){
-  const dateHeadline = ev.dateObj
-    ? new Date(ev.dateObj).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) +
-      ' · ' + new Date(ev.dateObj).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})
-    : '';
+  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
   const buttons = [
     linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
     linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
@@ -2312,8 +2353,8 @@ function renderUsOpen(){
 
   let html = '';
   if(pinned.length){
-    html += `<div class="day-heading">📌 Pinned</div>
-      <div class="day-grid">${pinned.map(pinnedCardHtml).join('')}</div>`;
+    html += `${dayHeadingHtml('📌 Pinned')}
+      <div class="day-grid pinned-grid">${pinned.map(pinnedCardHtml).join('')}</div>`;
   }
 
   // Group the rest by category (venue) — e.g. "Arthur Ashe", "Louis
@@ -2328,10 +2369,25 @@ function renderUsOpen(){
   });
 
   categoryOrder.forEach(cat => {
-    html += `<div class="day-heading">${escapeHtml(cat)}</div>${dnRowsHtml(byCategory[cat])}`;
+    html += `${dayHeadingHtml(cat)}${dnRowsHtml(byCategory[cat])}`;
   });
 
   listRoot.innerHTML = html;
+}
+
+// Every heading (date/venue/name group in Standard mode, category or
+// Pinned in US Open mode) is immediately followed by its .day-grid, so
+// collapsing is pure CSS: a "collapsed" class on the heading hides the
+// very next .day-grid via an adjacent-sibling rule. The section key is
+// just the heading text — unique within a given render in every case
+// this app produces one.
+function dayHeadingHtml(label, extraHtml = ''){
+  const key = label;
+  const collapsed = collapsedSections.has(key);
+  return `<div class="day-heading collapsible-heading ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
+    <svg class="collapse-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+    <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}
+  </div>`;
 }
 
 function escapeHtml(str){
@@ -2360,15 +2416,25 @@ clearBtn.addEventListener('click', () => {
   if(confirm(`Clear all events on "${activeSheetName}"?`)) clearActiveSheetEvents();
 });
 
-searchInput.addEventListener('input', () => {
+function handleSearchChange(){
+  const hasQuery = !!searchInput.value.trim();
+  if(hasQuery && !searchModeActive){
+    savedCollapsedSections = new Set(collapsedSections);
+    collapsedSections.clear();
+    searchModeActive = true;
+  } else if(!hasQuery && searchModeActive){
+    collapsedSections = savedCollapsedSections ? new Set(savedCollapsedSections) : new Set();
+    savedCollapsedSections = null;
+    searchModeActive = false;
+  }
   searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
   render();
-});
+}
+searchInput.addEventListener('input', handleSearchChange);
 searchClearBtn.addEventListener('click', () => {
   searchInput.value = '';
-  searchClearBtn.style.display = 'none';
+  handleSearchChange();
   searchInput.focus();
-  render();
 });
 
 sortSelect.addEventListener('change', () => {
@@ -2402,6 +2468,18 @@ async function copyToClipboard(text){
 }
 
 listRoot.addEventListener('click', async e => {
+  // Toggle a section open/closed. Pure DOM manipulation here (no full
+  // render) — the CSS adjacent-sibling rule does the actual hiding, so
+  // toggling is instant and doesn't disturb scroll position elsewhere.
+  const heading = e.target.closest('.collapsible-heading');
+  if(heading){
+    const key = heading.dataset.section;
+    if(collapsedSections.has(key)) collapsedSections.delete(key);
+    else collapsedSections.add(key);
+    heading.classList.toggle('collapsed');
+    return;
+  }
+
   const copyBtn = e.target.closest('.copy-btn');
   if(copyBtn){
     const ok = await copyToClipboard(copyBtn.dataset.href);
