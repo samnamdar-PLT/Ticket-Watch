@@ -110,18 +110,17 @@
   .sheet-tab.add-tab:hover{color:var(--amber);}
 
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1 1 auto;}
-  .sort-toggle{
-    display:flex;border:1px solid var(--hairline);border-radius:7px;overflow:hidden;flex:0 0 auto;
-  }
-  .sort-btn{
+  .sort-select{
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
-    padding:8px 10px;border:none;background:var(--card);color:var(--muted);
-    cursor:pointer;white-space:nowrap;
-    transition:background .15s ease, color .15s ease;
+    padding:8px 28px 8px 10px;border-radius:7px;
+    border:1px solid var(--hairline);background:var(--card);color:var(--text);
+    cursor:pointer;flex:0 0 auto;
+    -webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238f8d92' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 8px center;
   }
-  .sort-btn + .sort-btn{border-left:1px solid var(--hairline);}
-  .sort-btn.active{background:var(--teal);color:#0d211f;}
-  .sort-btn:not(.active):hover{background:var(--card-hover);color:var(--text);}
+  .sort-select:hover{border-color:var(--muted);}
+  .sort-select:focus{outline:none;border-color:var(--teal);}
   .search-wrap{position:relative;flex:1 1 200px;min-width:160px;}
   .search-wrap input{
     width:100%;
@@ -570,10 +569,12 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="searchInput" placeholder="Search event or venue…">
       </div>
-      <div class="sort-toggle" id="sortToggle">
-        <button class="sort-btn" data-sort="date">By date</button>
-        <button class="sort-btn active" data-sort="upload">As uploaded</button>
-      </div>
+      <select class="sort-select" id="sortSelect" title="Sort">
+        <option value="upload">As uploaded</option>
+        <option value="date">By date</option>
+        <option value="venue">By venue</option>
+        <option value="name">By name</option>
+      </select>
       <div class="col-stepper" id="colStepper" title="Columns">
         <button class="col-btn" id="colMinus" type="button" aria-label="Fewer columns">−</button>
         <span class="col-count" id="colCount">3</span>
@@ -641,7 +642,7 @@ const searchInput = $('#searchInput');
 const countLabel = $('#countLabel');
 const metaLine = $('#metaLine');
 const sheetTabs = $('#sheetTabs');
-const sortToggle = $('#sortToggle');
+const sortSelect = $('#sortSelect');
 const colMinus = $('#colMinus');
 const colPlus = $('#colPlus');
 const colCount = $('#colCount');
@@ -692,7 +693,7 @@ function updateModeUI(){
   const isUsOpen = mode === 'usopen';
   eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : 'Ticket List';
   starFilterBtn.style.display = isUsOpen ? 'inline-flex' : 'none';
-  sortToggle.style.display = isUsOpen ? 'none' : 'flex';
+  sortSelect.style.display = isUsOpen ? 'none' : 'inline-block';
   uploadBtn.textContent = 'Add CSV';
   emptyIcon.textContent = isUsOpen ? '🎾' : '🎟️';
   if(isUsOpen){
@@ -1420,6 +1421,41 @@ function groupByUploadOrder(events){
   return groups;
 }
 
+// Sorts alphabetically by venue (ties broken by date), grouped under a
+// heading per venue. Unlike "As uploaded", the heading always shows here
+// since organizing by venue is the whole point of picking this sort.
+function groupByVenue(events){
+  const sorted = [...events].sort((a, b) => {
+    const va = (a.venue || '').toLowerCase(), vb = (b.venue || '').toLowerCase();
+    const cmp = va.localeCompare(vb);
+    if(cmp !== 0) return cmp;
+    if(!a.dateObj && !b.dateObj) return 0;
+    if(!a.dateObj) return 1;
+    if(!b.dateObj) return -1;
+    return new Date(a.dateObj) - new Date(b.dateObj);
+  });
+  const groups = [];
+  let currentKey = null, currentGroup = null;
+  sorted.forEach(ev => {
+    const key = (ev.venue && ev.venue.trim()) ? ev.venue.trim() : 'Unknown Venue';
+    if(key !== currentKey){
+      currentKey = key;
+      currentGroup = { heading: key, showHeading: true, showTodayTag: false, events: [] };
+      groups.push(currentGroup);
+    }
+    currentGroup.events.push(ev);
+  });
+  return groups;
+}
+
+// Sorts alphabetically by event/artist name — a flat A-Z list, no
+// grouping headings, since event names are rarely repeated the way
+// venues are.
+function groupByName(events){
+  const sorted = [...events].sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
+  return [{ heading: '', showHeading: false, showTodayTag: false, events: sorted }];
+}
+
 function render(){
   if(activeSheetMode() === 'usopen') renderUsOpen();
   else renderStandard();
@@ -1447,7 +1483,10 @@ function renderStandard(){
 
   countLabel.textContent = `${filtered.length} of ${allEvents.length}`;
 
-  const groups = sortMode === 'upload' ? groupByUploadOrder(filtered) : groupByDate(filtered);
+  const groups = sortMode === 'upload' ? groupByUploadOrder(filtered)
+    : sortMode === 'venue' ? groupByVenue(filtered)
+    : sortMode === 'name' ? groupByName(filtered)
+    : groupByDate(filtered);
 
   if(!groups.length){
     listRoot.innerHTML = '<div class="no-results">No events match your search.</div>';
@@ -1805,11 +1844,8 @@ clearBtn.addEventListener('click', () => {
 
 searchInput.addEventListener('input', render);
 
-sortToggle.addEventListener('click', e => {
-  const btn = e.target.closest('.sort-btn');
-  if(!btn || btn.dataset.sort === sortMode) return;
-  sortMode = btn.dataset.sort;
-  sortToggle.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === sortMode));
+sortSelect.addEventListener('change', () => {
+  sortMode = sortSelect.value;
   render();
 });
 
