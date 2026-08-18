@@ -24,6 +24,8 @@
     --stub-orange:#ff7a1a;
     --day-color:#f5df8a;
     --night-color:#8c7cf0;
+    --day-bg:rgba(245,223,138,.09);
+    --night-bg:rgba(108,92,220,.14);
     --pin:#f2c14e;
     --rating:#ff7a3d;
     --price-tag-bg:#ffffff;
@@ -50,6 +52,8 @@
     --amber:#a8790a;
     --day-color:#9c7300;
     --night-color:#6a56d6;
+    --day-bg:rgba(156,115,0,.07);
+    --night-bg:rgba(106,86,214,.08);
     --pin:#a8790a;
     --rating:#c9531b;
   }
@@ -246,10 +250,9 @@
     transition:border-color .15s ease;
   }
   .ticket:hover{border-color:#4a4950;}
-  .ticket.shift-day{border-left-color:var(--day-color);}
-  .ticket.shift-night{border-left-color:var(--night-color);}
+  .ticket.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
+  .ticket.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
-  .ticket.is-new{border-color:var(--coral);}
   .ticket.kb-selected, .shift-block.kb-selected{
     outline:2px solid var(--amber);outline-offset:-1px;
   }
@@ -274,10 +277,9 @@
     padding:10px 14px 12px;
     border-left:3px solid transparent;
   }
-  .shift-block.shift-day{border-left-color:var(--day-color);}
-  .shift-block.shift-night{border-left-color:var(--night-color);}
-  .shift-block.is-pinned{background:rgba(242,193,78,.05);}
-  .shift-block.is-new{background:rgba(255,107,106,.08);}
+  .shift-block.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
+  .shift-block.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
+  .shift-block.is-pinned{box-shadow:inset 0 0 0 1px var(--pin);}
   .shift-block-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .shift-tag{
     font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
@@ -286,7 +288,7 @@
   .shift-tag-day{color:var(--day-color);}
   .shift-tag-night{color:var(--night-color);}
   .shift-block-icons{display:flex;gap:2px;}
-  .shift-block-icons .icon-btn{width:24px;height:24px;}
+  .shift-block-icons .icon-btn{width:28px;height:28px;}
   .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
@@ -309,7 +311,7 @@
   }
   .icon-btn{
     display:flex;align-items:center;justify-content:center;
-    width:26px;height:26px;
+    width:32px;height:32px;
     border-radius:6px;
     border:1px solid transparent;
     background:transparent;color:var(--muted);
@@ -319,7 +321,7 @@
   .icon-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
   .icon-btn.notes-btn.has-note{color:var(--amber);}
   .icon-btn.notes-btn.active{color:var(--teal);background:var(--card-hover);border-color:var(--hairline);}
-  .icon-btn.rating-btn{width:auto;padding:0 6px;gap:3px;}
+  .icon-btn.rating-btn{width:auto;padding:0 8px;gap:4px;}
   .icon-btn.rating-btn.active{color:var(--rating);}
   .rating-count{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
   .icon-btn.pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
@@ -360,11 +362,9 @@
     letter-spacing:.02em;
   }
   .ev-date{
-    font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:.02em;line-height:1.15;
-    color:var(--amber);
+    font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:.02em;line-height:1.15;
+    color:var(--text);
   }
-  .ticket.shift-day .ev-date{color:var(--day-color);}
-  .ticket.shift-night .ev-date{color:var(--night-color);}
   .ev-sub{font-size:13.5px;color:var(--text);opacity:.78;line-height:1.35;margin-top:3px;}
   .tag-today{
     font-family:'IBM Plex Mono',monospace;
@@ -668,7 +668,7 @@
       <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">🔥 Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
-      <button class="btn ghost" id="clearPastBtn" title="Remove events more than a week past their date">🗑 Clear past</button>
+      <button class="btn ghost" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
       <button class="btn primary" id="uploadBtn" title="Adds to THIS sheet — merges in, refreshes matches, skips duplicates. Use + above instead to start a separate new sheet.">Add CSV</button>
       <button class="btn ghost" id="clearBtn" style="display:none;">Clear data</button>
       <input type="file" id="fileInput" accept=".csv">
@@ -1049,13 +1049,23 @@ async function loadAllFromRemote(){
   setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
 
+// Tracks how many pushes are currently in flight. A background poll that
+// lands WHILE a push is still writing the Sheet (uploads especially can
+// take a few seconds for hundreds of rows) would read the Sheet mid-write
+// and see the OLD pre-push data — which then overwrites the screen with
+// exactly the stale state the poll fetched, making a change look like it
+// "didn't register" until the next poll catches up. Pausing polling for
+// the duration of any push closes that window entirely.
+let pendingPushCount = 0;
+
 // Background poll: re-fetches everything and re-derives sheets + the
 // active sheet's data from scratch, since the Sheet is the sole source of
-// truth. Skipped while a notes/price panel is open, so it can't yank a
-// card's editor out from under an in-progress edit — the fresher data is
-// still cached in remoteCache and will show on the next render.
+// truth. Skipped while a notes/price panel is open (so it can't yank a
+// card's editor out from under an in-progress edit) or while a push is
+// in flight (see pendingPushCount above) — the fresher data is still
+// cached in remoteCache and will show on the next render either way.
 async function pollRemote(){
-  if(!syncUrl) return;
+  if(!syncUrl || pendingPushCount > 0) return;
   let data;
   try{
     const res = await fetch(syncUrl, { method: 'GET' });
@@ -1065,6 +1075,7 @@ async function pollRemote(){
     return;
   }
   if(!data || !Array.isArray(data.events)) return;
+  if(pendingPushCount > 0) return; // a push started while this fetch was in flight
   remoteCache = data.events;
   remoteSheetsList = Array.isArray(data.sheets) ? data.sheets : [];
 
@@ -1098,6 +1109,7 @@ async function pushActiveSheetToRemote(){
     const ann = getAnnotation(eventKey(ev));
     return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew };
   });
+  pendingPushCount++;
   try{
     const res = await fetch(syncUrl, {
       method: 'POST',
@@ -1110,11 +1122,14 @@ async function pushActiveSheetToRemote(){
     setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
   }catch(err){
     setSyncStatus('Save failed — check your connection and try again.', 'error');
+  }finally{
+    pendingPushCount = Math.max(0, pendingPushCount - 1);
   }
 }
 
 async function pushSheetRename(oldName, newName){
   if(!syncUrl) return;
+  pendingPushCount++;
   try{
     const res = await fetch(syncUrl, {
       method: 'POST',
@@ -1125,10 +1140,12 @@ async function pushSheetRename(oldName, newName){
     if(data && Array.isArray(data.events)) remoteCache = data.events;
     if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
   }catch(e){ setSyncStatus('Rename may not have saved — check your connection.', 'error'); }
+  finally{ pendingPushCount = Math.max(0, pendingPushCount - 1); }
 }
 
 async function pushSheetDelete(name){
   if(!syncUrl) return;
+  pendingPushCount++;
   try{
     const res = await fetch(syncUrl, {
       method: 'POST',
@@ -1139,6 +1156,7 @@ async function pushSheetDelete(name){
     if(data && Array.isArray(data.events)) remoteCache = data.events;
     if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
   }catch(e){ setSyncStatus('Delete may not have saved — check your connection.', 'error'); }
+  finally{ pendingPushCount = Math.max(0, pendingPushCount - 1); }
 }
 
 // ---------- CSV parsing ----------
@@ -1478,19 +1496,18 @@ async function deleteSingleEvent(key){
   await pushActiveSheetToRemote();
 }
 
-// Bulk-clears events whose date is more than a week in the past — keeps
-// anything within the last 7 days (so "today" and recent near-misses
-// don't disappear), and never touches events with no parseable date.
-const PAST_EVENT_GRACE_DAYS = 7;
+// Bulk-clears events dated before today (midnight boundary) — today's
+// events are kept, anything earlier is removed. Never touches events
+// with no parseable date.
 async function clearPastEvents(){
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - PAST_EVENT_GRACE_DAYS);
+  cutoff.setHours(0, 0, 0, 0);
   const toRemove = allEvents.filter(ev => ev.dateObj && new Date(ev.dateObj) < cutoff);
   if(!toRemove.length){
-    alert(`Nothing to clear — no events are more than ${PAST_EVENT_GRACE_DAYS} days past.`);
+    alert('Nothing to clear — no events are dated before today.');
     return;
   }
-  if(!confirm(`Remove ${toRemove.length} event${toRemove.length === 1 ? '' : 's'} dated more than ${PAST_EVENT_GRACE_DAYS} days ago? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  if(!confirm(`Remove ${toRemove.length} event${toRemove.length === 1 ? '' : 's'} dated before today? You can undo this with Ctrl+Z or the ↶ button.`)) return;
   pushUndo();
   const removeKeys = new Set(toRemove.map(ev => eventKey(ev)));
   allEvents = allEvents.filter(ev => !removeKeys.has(eventKey(ev)));
@@ -1942,13 +1959,16 @@ function renderStandard(){
 
   countLabel.textContent = `${filtered.length} of ${allEvents.length}`;
 
-  const groups = sortMode === 'upload' ? groupByUploadOrder(filtered)
-    : sortMode === 'venue' ? groupByVenue(filtered)
-    : sortMode === 'name' ? groupByName(filtered)
-    : sortMode === 'rating' ? groupByRating(filtered)
-    : groupByDate(filtered);
+  const pinned = filtered.filter(ev => getAnnotation(eventKey(ev)).pinned);
+  const rest = filtered.filter(ev => !getAnnotation(eventKey(ev)).pinned);
 
-  if(!groups.length){
+  const groups = sortMode === 'upload' ? groupByUploadOrder(rest)
+    : sortMode === 'venue' ? groupByVenue(rest)
+    : sortMode === 'name' ? groupByName(rest)
+    : sortMode === 'rating' ? groupByRating(rest)
+    : groupByDate(rest);
+
+  if(!groups.length && !pinned.length){
     listRoot.innerHTML = '<div class="no-results">No events match your search.</div>';
     return;
   }
@@ -1959,6 +1979,9 @@ function renderStandard(){
   // the column count is actually used — otherwise each 1-card group got
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
+  if(pinned.length){
+    htmlParts.push(`<div class="day-heading">📌 Pinned</div><div class="day-grid">${pinned.map(cardHtmlStandard).join('')}</div>`);
+  }
   let pendingCards = [];
   const flushGrid = () => {
     if(pendingCards.length){
@@ -2003,13 +2026,13 @@ function cardHtmlStandard(ev){
         <div class="toolbar-icons-right">
           ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
           </button>
           <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
           </button>
           <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
       </div>
@@ -2081,13 +2104,15 @@ function hasNotesContent(ann){
   return !!(ann.note && ann.note.trim()) || !!ann.rating || (ann.sections && ann.sections.some(s => (s.label && s.label.trim()) || (s.price && s.price.trim())));
 }
 
-// Compact toolbar button: shows the current rating (flame + count) and
-// cycles 0→1→2→3→4→5→0 on click — quick to bump without opening anything.
+// Compact toolbar button: shows the current rating (flame + count) as a
+// status indicator. Clicking it opens notes — where the precise 1-5
+// flame row lives — rather than changing the rating directly, so a
+// stray click can't accidentally bump or clear it.
 function ratingControlHtml(key, rating){
   const filled = rating > 0;
   return `
-    <button type="button" class="icon-btn rating-btn ${filled ? 'active' : ''}" data-action="rate-cycle" data-key="${escapeHtml(key)}" title="${filled ? 'Rating ' + rating + '/5 — click to change' : 'Rate this'}">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
+    <button type="button" class="icon-btn rating-btn ${filled ? 'active' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="${filled ? 'Rating ' + rating + '/5 — click to open notes' : 'Not rated — click to open notes'}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
       ${filled ? `<span class="rating-count">${rating}</span>` : ''}
     </button>`;
 }
@@ -2191,13 +2216,13 @@ function shiftBlockHtml(ev, shift){
           ${ratingControlHtml(key, ann.rating)}
           ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
           </button>
           <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
           </button>
           <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this session">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
       </div>
@@ -2387,17 +2412,6 @@ listRoot.addEventListener('click', async e => {
     } else {
       alert('Could not copy that link — your browser may be blocking clipboard access.');
     }
-    return;
-  }
-
-  // Rating: quick cycle from the compact toolbar button
-  const rateCycleBtn = e.target.closest('[data-action="rate-cycle"]');
-  if(rateCycleBtn){
-    pushUndo();
-    const ann = getAnnotation(rateCycleBtn.dataset.key);
-    ann.rating = (ann.rating + 1) % 6; // 0..5, wraps back to 0
-    saveNotesSoon();
-    render();
     return;
   }
 
