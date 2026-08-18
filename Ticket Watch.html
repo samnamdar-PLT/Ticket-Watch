@@ -467,15 +467,12 @@
   /* ---------- Notes ---------- */
   .notes-preview{
     border-top:1px solid var(--hairline);
-    padding:8px 14px;
+    padding:8px 14px 10px;
     background:rgba(255,255,255,.012);
-    display:flex;align-items:center;gap:6px;
-    overflow:hidden;white-space:nowrap;
   }
   .note-preview-text{
     font-size:12px;color:var(--muted);font-style:italic;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    flex:0 1 auto;min-width:0;
   }
   .notes-panel{
     border-top:1px solid var(--hairline);
@@ -493,14 +490,15 @@
     padding:8px 10px;outline:none;
   }
   .notes-textarea:focus{border-color:var(--teal);}
-  .price-preview-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .price-preview-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .price-preview-chip{
-    display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
-    font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;
+    display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;flex:0 0 auto;
+    font-family:'Inter',sans-serif;font-size:11px;font-weight:700;line-height:1.25;
     background:var(--price-tag-bg);border:1px solid var(--price-tag-border);border-radius:5px;
-    padding:2px 7px;color:var(--price-tag-text);
+    padding:3px 7px;color:var(--price-tag-text);
   }
-  .price-preview-chip b{color:#5a4a12;font-weight:700;margin-right:2px;opacity:.75;}
+  .price-preview-chip b{color:#5a4a12;font-weight:700;font-size:9.5px;letter-spacing:.02em;text-transform:uppercase;opacity:.75;}
+  .price-preview-value{font-size:12px;}
   .price-preview-chip.more{
     background:transparent;color:var(--muted);border-style:dashed;border-color:var(--hairline);
   }
@@ -2258,28 +2256,22 @@ function formatPriceDisplay(raw){
 }
 
 function notesPreviewHtml(ann){
-  const bits = [];
+  const parts = [];
   if(ann.note && ann.note.trim()){
     const trimmed = ann.note.trim();
-    const short = trimmed.length > 46 ? trimmed.slice(0, 46) + '…' : trimmed;
-    bits.push(`<span class="note-preview-text">${escapeHtml(short)}</span>`);
+    const short = trimmed.length > 60 ? trimmed.slice(0, 60) + '…' : trimmed;
+    parts.push(`<div class="note-preview-text">${escapeHtml(short)}</div>`);
   }
   const priced = (ann.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
   if(priced.length){
-    // Capped at 2 chips so the row has a real chance of staying one line
-    // even alongside note text — this is what kept cards in the same row
-    // from growing to wildly different heights. The full list is still
-    // one click away in the notes panel.
-    const shown = priced.slice(0, 2);
-    shown.forEach(s => {
-      bits.push(`<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b> ${escapeHtml(formatPriceDisplay(s.price) || '—')}</span>`);
-    });
-    if(priced.length > shown.length){
-      bits.push(`<span class="price-preview-chip more">+${priced.length - shown.length}</span>`);
-    }
+    // Every priced section shows — price is exactly the kind of thing
+    // that shouldn't be hidden behind a "+N" click. Chips are compact
+    // enough to just wrap to a second line instead.
+    const chips = priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
+    parts.push(`<div class="price-preview-row">${chips}</div>`);
   }
-  if(!bits.length) return '';
-  return `<div class="notes-preview">${bits.join('')}</div>`;
+  if(!parts.length) return '';
+  return `<div class="notes-preview">${parts.join('')}</div>`;
 }
 
 function priceRowHtml(key, row){
