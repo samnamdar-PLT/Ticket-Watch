@@ -469,7 +469,10 @@
     border-top:1px solid var(--hairline);
     padding:8px 14px 10px;
     background:rgba(255,255,255,.012);
+    min-height:38px;
+    box-sizing:border-box;
   }
+  .notes-preview.empty{border-top-color:var(--hairline);opacity:.4;}
   .note-preview-text{
     font-size:12px;color:var(--muted);font-style:italic;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -2270,8 +2273,11 @@ function notesPreviewHtml(ann){
     const chips = priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
     parts.push(`<div class="price-preview-row">${chips}</div>`);
   }
-  if(!parts.length) return '';
-  return `<div class="notes-preview">${parts.join('')}</div>`;
+  // Always render this wrapper, even empty — every card reserves the same
+  // minimum vertical space (see .notes-preview's min-height) whether or
+  // not it actually has notes, which is what keeps cards in the same row
+  // aligned instead of the ones with notes sticking out taller.
+  return `<div class="notes-preview ${parts.length ? '' : 'empty'}">${parts.join('')}</div>`;
 }
 
 function priceRowHtml(key, row){
