@@ -25,7 +25,33 @@
     --day-color:#f5df8a;
     --night-color:#8c7cf0;
     --pin:#f2c14e;
-    --star:#ffd166;
+    --rating:#ff7a3d;
+    --price-tag-bg:#ffffff;
+    --price-tag-text:#146c2e;
+    --price-tag-border:#bfe8c9;
+  }
+  html[data-theme="light"]{
+    --bg:#f5f5f7;
+    --card:#ffffff;
+    --card-hover:#f0f0f3;
+    --hairline:#e1e1e6;
+    --dash:#d4d4da;
+    --text:#17171a;
+    --muted:#6b6b73;
+    --today:#d6432f;
+    --price-tag-bg:#ecfdf3;
+    --price-tag-border:#86e0a0;
+    /* These accents double as small-text/icon colors (eyebrow label, day
+       headings, pin icon, flame rating) as well as button backgrounds.
+       The dark-mode values are pale on purpose to pop against a near-black
+       card — on white they'd wash out, so light mode gets deepened
+       versions. Button backgrounds using these still keep good contrast
+       against their dark text either way. */
+    --amber:#a8790a;
+    --day-color:#9c7300;
+    --night-color:#6a56d6;
+    --pin:#a8790a;
+    --rating:#c9531b;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -129,12 +155,20 @@
     color:var(--text);
     font-family:'Inter',sans-serif;
     font-size:14px;
-    padding:10px 12px 10px 34px;
+    padding:10px 30px 10px 34px;
     border-radius:8px;
     outline:none;
   }
   .search-wrap input:focus{border-color:var(--amber);}
-  .search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.5;}
+  .search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none;}
+  .search-clear-btn{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    width:22px;height:22px;
+    display:flex;align-items:center;justify-content:center;
+    border:none;background:transparent;color:var(--muted);
+    font-size:17px;line-height:1;cursor:pointer;border-radius:5px;
+  }
+  .search-clear-btn:hover{background:var(--card-hover);color:var(--text);}
   .btn{
     font-family:'Inter',sans-serif;
     font-size:13px;font-weight:600;
@@ -161,7 +195,7 @@
   .day-grid{
     display:grid;
     grid-template-columns:repeat(var(--cols, 3), minmax(0, 1fr));
-    gap:12px;
+    gap:10px;
     margin-bottom:4px;
   }
   .col-stepper{
@@ -189,7 +223,7 @@
     font-family:'Bebas Neue',sans-serif;
     font-size:22px;letter-spacing:.02em;
     color:var(--text);
-    padding:14px 0 8px;
+    padding:10px 0 6px;
     display:flex;align-items:center;gap:10px;
   }
   .day-heading .tag-today{
@@ -215,12 +249,25 @@
   .ticket.shift-day{border-left-color:var(--day-color);}
   .ticket.shift-night{border-left-color:var(--night-color);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
+  .ticket.is-new{border-color:var(--coral);}
+  .ticket.kb-selected, .shift-block.kb-selected{
+    outline:2px solid var(--amber);outline-offset:-1px;
+  }
+  .dn-merged:has(.shift-block.kb-selected){outline:2px solid var(--amber);outline-offset:-1px;border-radius:10px;}
+  .new-badge{
+    display:inline-flex;align-items:center;
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+    background:var(--coral);color:#fff;
+    padding:3px 7px;border-radius:4px;
+    cursor:pointer;white-space:nowrap;
+  }
+  .new-badge:hover{filter:brightness(1.1);}
 
   /* ---------- US Open merged Day+Night card ---------- */
   .dn-merged{padding-bottom:2px;}
   .dn-merged-date{
-    font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.02em;
-    color:var(--text);padding:12px 14px 6px;
+    font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.02em;
+    color:var(--amber);padding:12px 14px 6px;
   }
   .shift-block{
     border-top:1px solid var(--hairline);
@@ -230,6 +277,7 @@
   .shift-block.shift-day{border-left-color:var(--day-color);}
   .shift-block.shift-night{border-left-color:var(--night-color);}
   .shift-block.is-pinned{background:rgba(242,193,78,.05);}
+  .shift-block.is-new{background:rgba(255,107,106,.08);}
   .shift-block-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
   .shift-tag{
     font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
@@ -242,7 +290,7 @@
   .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
-  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:150px;}
+  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:165px;}
   .shift-divider{height:0;}
   .filter-btn{
     display:flex;align-items:center;gap:6px;
@@ -253,7 +301,7 @@
     transition:border-color .15s ease, background .15s ease, color .15s ease;
   }
   .filter-btn:hover{border-color:var(--muted);color:var(--text);}
-  .filter-btn.active{border-color:var(--star);color:var(--star);background:rgba(255,209,102,.08);}
+  .filter-btn.active{border-color:var(--rating);color:var(--rating);background:rgba(255,122,61,.08);}
   .sheet-tab-icon{opacity:.7;}
   .ticket-toolbar{
     display:flex;justify-content:flex-end;
@@ -271,17 +319,31 @@
   .icon-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
   .icon-btn.notes-btn.has-note{color:var(--amber);}
   .icon-btn.notes-btn.active{color:var(--teal);background:var(--card-hover);border-color:var(--hairline);}
-  .icon-btn.star-btn.active{color:var(--star);}
+  .icon-btn.rating-btn{width:auto;padding:0 6px;gap:3px;}
+  .icon-btn.rating-btn.active{color:var(--rating);}
+  .rating-count{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
   .icon-btn.pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
+  .icon-btn.delete-btn:hover{color:var(--coral);border-color:var(--coral);}
+  .ticket-toolbar{justify-content:space-between;}
+  .toolbar-icons-right{display:flex;gap:2px;}
+  .rating-row{display:flex;gap:4px;margin:6px 0 12px;}
+  .rating-flame{
+    width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+    border-radius:6px;border:1px solid var(--hairline);background:var(--bg);
+    color:var(--muted);cursor:pointer;padding:0;
+    transition:color .15s ease, border-color .15s ease, background .15s ease;
+  }
+  .rating-flame:hover{border-color:var(--rating);color:var(--rating);}
+  .rating-flame.filled{color:var(--rating);border-color:var(--rating);background:rgba(255,122,61,.1);}
   .ticket-main{display:flex;}
 
   .ticket-info{
     flex:1 1 auto;
     min-width:0;
-    padding:10px 18px 16px;
+    padding:8px 16px 12px;
     display:flex;
     flex-direction:column;
-    gap:5px;
+    gap:4px;
     justify-content:center;
   }
   .ev-name{
@@ -289,20 +351,21 @@
     line-height:1.3;
   }
   .ev-venue{
-    font-size:13.5px;color:var(--muted);
-    line-height:1.3;
+    font-size:14px;color:var(--text);opacity:.78;
+    line-height:1.35;
   }
   .ev-time{
     font-family:'IBM Plex Mono',monospace;
-    font-size:12px;color:var(--amber);
+    font-size:13.5px;font-weight:600;color:var(--amber);
     letter-spacing:.02em;
   }
   .ev-date{
     font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:.02em;line-height:1.15;
+    color:var(--amber);
   }
   .ticket.shift-day .ev-date{color:var(--day-color);}
   .ticket.shift-night .ev-date{color:var(--night-color);}
-  .ev-sub{font-size:12.5px;color:var(--muted);line-height:1.3;margin-top:3px;}
+  .ev-sub{font-size:13.5px;color:var(--text);opacity:.78;line-height:1.35;margin-top:3px;}
   .tag-today{
     font-family:'IBM Plex Mono',monospace;
     font-size:10px;letter-spacing:.08em;text-transform:uppercase;
@@ -332,10 +395,10 @@
     flex:0 0 auto;
     display:flex;
     flex-direction:column;
-    gap:5px;
-    padding:10px 12px 16px;
+    gap:4px;
+    padding:8px 10px 12px;
     justify-content:center;
-    min-width:165px;
+    min-width:180px;
   }
   .link-row{display:flex;gap:4px;}
   .link-btn{
@@ -362,18 +425,18 @@
   .copy-btn{
     flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;
-    width:26px;
+    width:40px;
     border-radius:6px;
     border:1px solid var(--hairline);
-    background:transparent;
-    color:var(--muted);
+    background:var(--card-hover);
+    color:var(--text);
     cursor:pointer;
     padding:0;
     transition:background .15s ease, color .15s ease, border-color .15s ease;
   }
-  .copy-btn:hover{color:var(--text);border-color:var(--muted);background:var(--card-hover);}
+  .copy-btn:hover{color:var(--bg);border-color:var(--teal);background:var(--teal);}
   .copy-btn .icon-check{display:none;}
-  .copy-btn.copied{color:var(--teal);border-color:var(--teal);}
+  .copy-btn.copied{color:var(--bg);border-color:var(--teal);background:var(--teal);}
   .copy-btn.copied .icon-copy{display:none;}
   .copy-btn.copied .icon-check{display:block;}
   .no-links{
@@ -407,15 +470,17 @@
     padding:8px 10px;outline:none;
   }
   .notes-textarea:focus{border-color:var(--teal);}
-  .price-green{color:var(--price-green,#4ade80);font-weight:600;}
   .price-preview-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .price-preview-chip{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;
-    background:var(--bg);border:1px solid var(--hairline);border-radius:5px;
-    padding:3px 7px;color:var(--text);
+    display:inline-flex;align-items:center;gap:5px;
+    font-family:'Inter',sans-serif;font-size:12.5px;font-weight:700;
+    background:var(--price-tag-bg);border:1px solid var(--price-tag-border);border-radius:5px;
+    padding:3px 8px;color:var(--price-tag-text);
   }
-  .price-preview-chip b{color:var(--amber);font-weight:600;margin-right:4px;}
-  .price-preview-chip.more{color:var(--muted);border-style:dashed;}
+  .price-preview-chip b{color:#5a4a12;font-weight:700;margin-right:2px;opacity:.75;}
+  .price-preview-chip.more{
+    background:transparent;color:var(--muted);border-style:dashed;border-color:var(--hairline);
+  }
   .price-rows{display:flex;flex-direction:column;gap:6px;margin:10px 0 8px;}
   .price-row{display:flex;gap:6px;align-items:center;}
   .price-row input.price-label{
@@ -427,12 +492,14 @@
   .price-row input.price-value{
     flex:0 0 90px;
     background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
-    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;
+    color:var(--text);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;
     padding:6px 8px;outline:none;
   }
   .price-formatted{
-    flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;
-    color:var(--price-green,#4ade80);white-space:nowrap;min-width:52px;
+    flex:0 0 auto;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
+    background:var(--price-tag-bg);color:var(--price-tag-text);
+    border:1px solid var(--price-tag-border);border-radius:5px;
+    padding:3px 8px;white-space:nowrap;min-width:52px;text-align:center;
   }
   .price-row input:focus{border-color:var(--teal);}
   .price-updated{
@@ -456,6 +523,7 @@
 
   /* ---------- Cloud sync ---------- */
   .sync-wrap{position:relative;flex:0 0 auto;}
+  .theme-toggle-btn{padding:9px 11px;font-size:14px;line-height:1;}
   #syncToggleBtn.connected{border-color:var(--teal);color:var(--teal);}
   .sync-popover{
     position:absolute;top:calc(100% + 8px);right:0;
@@ -483,6 +551,17 @@
   }
   .sync-status.error{color:var(--coral);}
   .sync-status.ok{color:var(--teal);}
+  .shortcuts-list{display:flex;flex-direction:column;gap:8px;}
+  .shortcuts-list > div{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    font-family:'Inter',sans-serif;font-size:12.5px;color:var(--text);
+  }
+  .shortcuts-list kbd{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;
+    background:var(--bg);border:1px solid var(--hairline);border-radius:4px;
+    padding:2px 6px;color:var(--text);min-width:20px;text-align:center;
+  }
+  #helpPopover{width:280px;}
 
   /* ---------- New Sheet modal ---------- */
   .modal-overlay{
@@ -567,21 +646,30 @@
     <div class="toolbar">
       <div class="search-wrap">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="searchInput" placeholder="Search event or venue…">
+        <input type="text" id="searchInput" placeholder="Search name, venue, link, notes…" title="Searches artist/event name, venue, Ticketmaster/VividSeats/StubHub links, notes, and price section labels. Multiple words all have to match, in any field.">
+        <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search" style="display:none;">×</button>
       </div>
       <select class="sort-select" id="sortSelect" title="Sort">
         <option value="upload">As uploaded</option>
         <option value="date">By date</option>
         <option value="venue">By venue</option>
         <option value="name">By name</option>
+        <option value="rating">By rating</option>
       </select>
       <div class="col-stepper" id="colStepper" title="Columns">
         <button class="col-btn" id="colMinus" type="button" aria-label="Fewer columns">−</button>
         <span class="col-count" id="colCount">3</span>
         <button class="col-btn" id="colPlus" type="button" aria-label="More columns">+</button>
       </div>
-      <button class="filter-btn" id="starFilterBtn" title="Show starred only" style="display:none;">★ Starred only</button>
-      <button class="btn primary" id="uploadBtn">Add CSV</button>
+      <div class="col-stepper" title="Undo / Redo">
+        <button class="col-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
+        <button class="col-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
+      </div>
+      <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">🔥 Rated only</button>
+      <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
+      <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
+      <button class="btn ghost" id="clearPastBtn" title="Remove events more than a week past their date">🗑 Clear past</button>
+      <button class="btn primary" id="uploadBtn" title="Adds to THIS sheet — merges in, refreshes matches, skips duplicates. Use + above instead to start a separate new sheet.">Add CSV</button>
       <button class="btn ghost" id="clearBtn" style="display:none;">Clear data</button>
       <input type="file" id="fileInput" accept=".csv">
       <div class="sync-wrap">
@@ -594,6 +682,27 @@
             <button class="btn ghost" id="syncDisconnectBtn" type="button" style="display:none;">Disconnect</button>
           </div>
           <p class="sync-status" id="syncStatus">Not connected.</p>
+        </div>
+      </div>
+      <button class="btn ghost theme-toggle-btn" id="themeToggleBtn" title="Switch to light mode">🌙</button>
+      <div class="sync-wrap">
+        <button class="btn ghost theme-toggle-btn" id="helpToggleBtn" title="Keyboard shortcuts">⌨</button>
+        <div class="sync-popover" id="helpPopover">
+          <p class="notes-label">Keyboard shortcuts</p>
+          <div class="shortcuts-list">
+            <div><kbd>/</kbd> Focus search</div>
+            <div><kbd>j</kbd> <kbd>k</kbd> or <kbd>↓</kbd> <kbd>↑</kbd> Move between cards</div>
+            <div><kbd>1</kbd>–<kbd>5</kbd> Rate selected card</div>
+            <div><kbd>0</kbd> Clear rating</div>
+            <div><kbd>p</kbd> Pin / unpin</div>
+            <div><kbd>n</kbd> Open / close notes</div>
+            <div><kbd>Enter</kbd> Open ticket link</div>
+            <div><kbd>c</kbd> Copy ticket link</div>
+            <div><kbd>Delete</kbd> or <kbd>x</kbd> Delete card</div>
+            <div><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</div>
+            <div><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> Redo</div>
+            <div><kbd>Esc</kbd> Close panel / unfocus</div>
+          </div>
         </div>
       </div>
     </div>
@@ -639,6 +748,7 @@ const dropZone = $('#dropZone');
 const emptyState = $('#emptyState');
 const listRoot = $('#listRoot');
 const searchInput = $('#searchInput');
+const searchClearBtn = $('#searchClearBtn');
 const countLabel = $('#countLabel');
 const metaLine = $('#metaLine');
 const sheetTabs = $('#sheetTabs');
@@ -652,7 +762,11 @@ const syncUrlInput = $('#syncUrlInput');
 const syncConnectBtn = $('#syncConnectBtn');
 const syncDisconnectBtn = $('#syncDisconnectBtn');
 const syncStatus = $('#syncStatus');
-const starFilterBtn = $('#starFilterBtn');
+const hotFilterBtn = $('#hotFilterBtn');
+const newFilterBtn = $('#newFilterBtn');
+const undoBtn = $('#undoBtn');
+const redoBtn = $('#redoBtn');
+const markSeenBtn = $('#markSeenBtn');
 const eyebrowLabel = $('#eyebrowLabel');
 const emptyIcon = $('#emptyIcon');
 const emptyHeading = $('#emptyHeading');
@@ -662,16 +776,18 @@ const newSheetNameInput = $('#newSheetNameInput');
 const newSheetUsOpenCheckbox = $('#newSheetUsOpenCheckbox');
 const cancelAddSheetBtn = $('#cancelAddSheetBtn');
 const confirmAddSheetBtn = $('#confirmAddSheetBtn');
+const clearPastBtn = $('#clearPastBtn');
+const themeToggleBtn = $('#themeToggleBtn');
 
 let allEvents = [];
 let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
 let pendingEmptySheets = []; // sheets created locally that have no pushed rows yet, so a poll doesn't make them vanish
 let activeSheetName = null;
 let sortMode = 'upload'; // 'date' | 'upload' — standard-mode sheets only; US Open always groups by date
-let notes = {}; // eventKey -> note text, used for 'standard' mode sheets
-let annotations = {}; // eventKey -> {note,starred,pinned,sections}, used for 'usopen' mode sheets
+let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections} — used on every sheet, any mode
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
-let starredOnly = false;
+let hotOnly = false; // filter: only show events with a rating > 0
+let newOnly = false; // filter: only show events flagged New by the last upload
 let columnCount = 3;
 const MIN_COLS = 1, MAX_COLS = 6;
 let remoteCache = []; // every raw row from the last successful fetch, across all sheets — this IS the data; nothing is cached beyond this in-memory copy
@@ -685,14 +801,14 @@ function activeSheetMode(){
 }
 
 // Reflects the active sheet's type in the header, empty-state copy, upload
-// button label, and which extra controls (starred filter, sort toggle) are
-// visible. US Open always groups by date, so the sort toggle only applies
-// to standard sheets.
+// button label, and which extra controls are visible. US Open always
+// groups by date, so the sort dropdown only applies to standard sheets —
+// but notes/rating/pin/prices and the Hot filter apply everywhere.
 function updateModeUI(){
   const mode = activeSheetMode();
   const isUsOpen = mode === 'usopen';
   eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : 'Ticket List';
-  starFilterBtn.style.display = isUsOpen ? 'inline-flex' : 'none';
+  hotFilterBtn.style.display = 'inline-flex';
   sortSelect.style.display = isUsOpen ? 'none' : 'inline-block';
   uploadBtn.textContent = 'Add CSV';
   emptyIcon.textContent = isUsOpen ? '🎾' : '🎟️';
@@ -723,11 +839,58 @@ colPlus.addEventListener('click', () => {
   applyColumnCount();
 });
 
-starFilterBtn.addEventListener('click', () => {
-  starredOnly = !starredOnly;
-  starFilterBtn.classList.toggle('active', starredOnly);
+hotFilterBtn.addEventListener('click', () => {
+  hotOnly = !hotOnly;
+  hotFilterBtn.classList.toggle('active', hotOnly);
   render();
 });
+
+newFilterBtn.addEventListener('click', () => {
+  newOnly = !newOnly;
+  newFilterBtn.classList.toggle('active', newOnly);
+  render();
+});
+
+clearPastBtn.addEventListener('click', () => { clearPastEvents(); });
+
+undoBtn.addEventListener('click', () => { undo(); });
+redoBtn.addEventListener('click', () => { redo(); });
+
+async function markAllSeen(){
+  const anyNew = allEvents.some(ev => getAnnotation(eventKey(ev)).isNew);
+  if(!anyNew){
+    alert('Nothing is marked New right now.');
+    return;
+  }
+  pushUndo();
+  allEvents.forEach(ev => { getAnnotation(eventKey(ev)).isNew = false; });
+  render();
+  await pushActiveSheetToRemote();
+}
+markSeenBtn.addEventListener('click', () => { markAllSeen(); });
+
+// Theme is an in-memory preference (matches how column count works) —
+// resets to dark on reload rather than being saved anywhere, since the
+// only persistence in this app is the Google Sheet itself.
+let currentTheme = 'dark';
+function applyTheme(theme){
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  themeToggleBtn.textContent = theme === 'light' ? '☀️' : '🌙';
+  themeToggleBtn.title = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+}
+themeToggleBtn.addEventListener('click', () => {
+  applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+});
+
+const helpToggleBtn = $('#helpToggleBtn');
+const helpPopover = $('#helpPopover');
+helpToggleBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  helpPopover.classList.toggle('open');
+});
+helpPopover.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => helpPopover.classList.remove('open'));
 
 // ---------- Google Sheets sync ----------
 // The Google Sheet is the only place data lives — nothing is cached in
@@ -794,26 +957,38 @@ syncDisconnectBtn.addEventListener('click', () => {
 
 window.addEventListener('focus', () => { if(syncUrl) pollRemote(); });
 
-// Groups the flat remote row list back into sheets (name + mode), in the
-// order each name first appears. Locally-created sheets with no pushed
-// rows yet are kept too, so they don't vanish before their first upload.
+let remoteSheetsList = []; // [{name, mode}] straight from the backend, in real Google Sheets tab order
+
+// Rebuilds the sheets list from the backend's explicit "sheets" array
+// (which reflects actual tab order in the spreadsheet — reorder tabs
+// there and this follows). Falls back to inferring order from event rows
+// for older backend responses that don't include it. Locally-created
+// sheets with no pushed rows yet are kept too, so they don't vanish
+// before their first upload.
 function rebuildSheetsFromCache(){
-  const order = [];
-  const modeMap = {};
-  remoteCache.forEach(ev => {
-    if(!(ev.appSheet in modeMap)){
-      modeMap[ev.appSheet] = ev.sheetMode === 'usopen' ? 'usopen' : 'standard';
-      order.push(ev.appSheet);
-    }
-  });
-  let rebuilt = order.map(name => ({ name, mode: modeMap[name] }));
+  let rebuilt;
+  if(remoteSheetsList.length){
+    rebuilt = remoteSheetsList.map(s => ({ name: s.name, mode: s.mode === 'usopen' ? 'usopen' : 'standard' }));
+  } else {
+    const order = [];
+    const modeMap = {};
+    remoteCache.forEach(ev => {
+      if(!(ev.appSheet in modeMap)){
+        modeMap[ev.appSheet] = ev.sheetMode === 'usopen' ? 'usopen' : 'standard';
+        order.push(ev.appSheet);
+      }
+    });
+    rebuilt = order.map(name => ({ name, mode: modeMap[name] }));
+  }
   pendingEmptySheets = pendingEmptySheets.filter(p => !rebuilt.some(s => s.name === p.name));
   rebuilt = rebuilt.concat(pendingEmptySheets);
   sheets = rebuilt.length ? rebuilt : [{ name: 'Sheet 1', mode: 'standard' }];
 }
 
-// Rebuilds allEvents/notes/annotations for whichever sheet is active, from
-// the in-memory remoteCache — no fetch needed, it's already there.
+// Rebuilds allEvents/annotations for whichever sheet is active, from the
+// in-memory remoteCache — no fetch needed, it's already there. Notes,
+// rating, pin, and price sections all live in one annotations record per
+// event, used the same way regardless of sheet type.
 function syncActiveSheetFromCache(){
   const rows = remoteCache.filter(ev => ev.appSheet === activeSheetName);
   allEvents = rows.map(ev => {
@@ -825,12 +1000,10 @@ function syncActiveSheetFromCache(){
       vividLink: ev.vividLink, stubLink: ev.stubLink
     };
   });
-  notes = {};
   annotations = {};
   rows.forEach((ev, idx) => {
     const key = eventKey(allEvents[idx]);
-    if(ev.note) notes[key] = ev.note;
-    annotations[key] = { note: ev.note || '', starred: !!ev.starred, pinned: !!ev.pinned, sections: ev.sections || [] };
+    annotations[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew };
   });
   metaLine.textContent = allEvents.length ? `${allEvents.length} events · live from Google Sheets` : '';
 }
@@ -842,7 +1015,7 @@ async function loadAllFromRemote(){
   if(!syncUrl){
     sheets = [{ name: 'Sheet 1', mode: 'standard' }];
     activeSheetName = 'Sheet 1';
-    allEvents = []; notes = {}; annotations = {};
+    allEvents = []; annotations = {};
     renderTabs(); updateModeUI(); render();
     setSyncStatus('Not connected — nothing will be saved until you connect.', 'error');
     return;
@@ -856,7 +1029,7 @@ async function loadAllFromRemote(){
     setSyncStatus('Could not reach the Google Sheet — check the URL and connection.', 'error');
     sheets = [{ name: 'Sheet 1', mode: 'standard' }];
     activeSheetName = 'Sheet 1';
-    allEvents = []; notes = {}; annotations = {};
+    allEvents = []; annotations = {};
     renderTabs(); updateModeUI(); render();
     return;
   }
@@ -865,6 +1038,7 @@ async function loadAllFromRemote(){
     return;
   }
   remoteCache = data.events;
+  remoteSheetsList = Array.isArray(data.sheets) ? data.sheets : [];
   rebuildSheetsFromCache();
   activeSheetName = sheets.length ? sheets[0].name : null;
   syncActiveSheetFromCache();
@@ -892,6 +1066,7 @@ async function pollRemote(){
   }
   if(!data || !Array.isArray(data.events)) return;
   remoteCache = data.events;
+  remoteSheetsList = Array.isArray(data.sheets) ? data.sheets : [];
 
   if(openNotesKey !== null){
     setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
@@ -908,7 +1083,7 @@ async function pollRemote(){
   setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
 
-// Pushes the currently-loaded sheet's events (with notes/star/pin/prices
+// Pushes the currently-loaded sheet's events (with notes/rating/pin/prices
 // merged in) to the Sheet. The response is the full authoritative dataset,
 // so remoteCache is refreshed from it directly — no separate local write.
 async function pushActiveSheetToRemote(){
@@ -919,13 +1094,9 @@ async function pushActiveSheetToRemote(){
   const name = activeSheetName;
   if(!name) return;
   const mode = activeSheetMode();
-  const isUsOpen = mode === 'usopen';
   const payloadEvents = allEvents.map(ev => {
-    if(isUsOpen){
-      const ann = getAnnotation(eventKey(ev));
-      return { ...ev, note: ann.note || '', starred: !!ann.starred, pinned: !!ann.pinned, sections: ann.sections || [] };
-    }
-    return { ...ev, note: notes[eventKey(ev)] || '' };
+    const ann = getAnnotation(eventKey(ev));
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew };
   });
   try{
     const res = await fetch(syncUrl, {
@@ -935,6 +1106,7 @@ async function pushActiveSheetToRemote(){
     });
     const data = await res.json();
     if(data && Array.isArray(data.events)) remoteCache = data.events;
+    if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
     setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
   }catch(err){
     setSyncStatus('Save failed — check your connection and try again.', 'error');
@@ -951,6 +1123,7 @@ async function pushSheetRename(oldName, newName){
     });
     const data = await res.json();
     if(data && Array.isArray(data.events)) remoteCache = data.events;
+    if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
   }catch(e){ setSyncStatus('Rename may not have saved — check your connection.', 'error'); }
 }
 
@@ -964,6 +1137,7 @@ async function pushSheetDelete(name){
     });
     const data = await res.json();
     if(data && Array.isArray(data.events)) remoteCache = data.events;
+    if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
   }catch(e){ setSyncStatus('Delete may not have saved — check your connection.', 'error'); }
 }
 
@@ -1160,6 +1334,25 @@ function eventKey(ev){
   return 'nv:' + [ev.name, ev.venue, ev.dateStr].join('|').trim().toLowerCase();
 }
 
+// Searches artist/event name, venue, all three ticket links, the primary
+// site (e.g. "ticketmaster"), your own notes, and any price section
+// labels you've logged (e.g. "floor"). Splits the query on whitespace and
+// requires every word to match SOMEWHERE in that combined text — so
+// "ashe ticketmaster" finds an Arthur Ashe session with a Ticketmaster
+// link even though those two words live in different fields, not just
+// queries that happen to appear as one exact phrase.
+function matchesSearch(ev, query){
+  if(!query) return true;
+  const ann = getAnnotation(eventKey(ev));
+  const priceLabels = (ann.sections || []).map(s => s.label || '').join(' ');
+  const haystack = [
+    ev.name, ev.venue, ev.primaryLink, ev.vividLink, ev.stubLink,
+    ev.primarySite, ann.note, priceLabels
+  ].join(' ').toLowerCase();
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return terms.every(term => haystack.includes(term));
+}
+
 // New uploads add on top of what's here; matching events (same key) get
 // their ticket data refreshed, true duplicates are skipped.
 function mergeEvents(existing, incoming){
@@ -1169,11 +1362,61 @@ function mergeEvents(existing, incoming){
   return Array.from(map.values());
 }
 
-// Reads/creates the {note,starred,pinned,sections} record for one event,
-// used only for 'usopen'-mode sheets.
+// ---------- Undo / Redo ----------
+// Covers event-level changes on the active sheet: uploads, deletes,
+// clears, ratings, pins, notes, and prices. Each snapshot is the full
+// {allEvents, annotations} pair for THIS sheet, taken right before a
+// change — so undo/redo is per-sheet and resets when you switch sheets
+// (a snapshot from one sheet wouldn't mean anything applied to another).
+// Doesn't cover creating/renaming/deleting a sheet itself.
+let undoStack = [];
+let redoStack = [];
+const MAX_UNDO_STEPS = 50;
+
+function snapshotState(){
+  return { allEvents: JSON.parse(JSON.stringify(allEvents)), annotations: JSON.parse(JSON.stringify(annotations)) };
+}
+function restoreState(snap){
+  allEvents = JSON.parse(JSON.stringify(snap.allEvents));
+  annotations = JSON.parse(JSON.stringify(snap.annotations));
+}
+function pushUndo(){
+  undoStack.push(snapshotState());
+  if(undoStack.length > MAX_UNDO_STEPS) undoStack.shift();
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+function resetUndoHistory(){
+  undoStack = [];
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+function updateUndoRedoButtons(){
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+async function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(snapshotState());
+  restoreState(undoStack.pop());
+  render();
+  updateUndoRedoButtons();
+  await pushActiveSheetToRemote();
+}
+async function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(snapshotState());
+  restoreState(redoStack.pop());
+  render();
+  updateUndoRedoButtons();
+  await pushActiveSheetToRemote();
+}
+
+// Reads/creates the {note, rating, pinned, sections, isNew} record for
+// one event. Used on every sheet, regardless of mode.
 function getAnnotation(key){
   if(!annotations[key]){
-    annotations[key] = { note: '', starred: false, pinned: false, sections: [] };
+    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false };
   }
   return annotations[key];
 }
@@ -1187,25 +1430,71 @@ async function saveEventsToActiveSheet(events){
 
 // Every upload adds to whatever's on the active sheet — matching events
 // (by ticket link, or name+venue+date) get their data refreshed, brand-new
-// ones get appended, and true duplicates are skipped. Notes, stars, pins,
+// ones get appended, and true duplicates are skipped. Notes, ratings, pins,
 // and prices are keyed by event identity too, so they're untouched by an
 // upload even when that event's other fields change. Uploads never create
 // a new sheet automatically — use "+" for that, on purpose.
+//
+// Events that weren't on the sheet before this upload get flagged "New" —
+// and only this round's additions carry that flag; anything marked New
+// from a previous upload gets cleared, so it always reflects "what just
+// showed up," not an accumulating pile of old badges.
 async function handleCsvUpload(file, text){
   const records = recordsFromCSV(text);
   if(!records.length){
     alert('That CSV parsed but produced no rows. Check that it matches the expected format.');
     return;
   }
+  pushUndo();
+  const existingKeys = new Set(allEvents.map(eventKey));
   const merged = mergeEvents(allEvents, records);
+  merged.forEach(ev => {
+    const key = eventKey(ev);
+    getAnnotation(key).isNew = !existingKeys.has(key);
+  });
   await saveEventsToActiveSheet(merged);
 }
 
 async function clearActiveSheetEvents(){
+  pushUndo();
   allEvents = [];
-  notes = {};
   annotations = {};
   metaLine.textContent = '';
+  render();
+  await pushActiveSheetToRemote();
+}
+
+// Removes a single event (and its note/rating/pin/prices) from the
+// active sheet.
+async function deleteSingleEvent(key){
+  const ev = allEvents.find(e => eventKey(e) === key);
+  if(!ev) return;
+  if(!confirm(`Delete "${ev.name}"? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  pushUndo();
+  allEvents = allEvents.filter(e => eventKey(e) !== key);
+  delete annotations[key];
+  if(openNotesKey === key) openNotesKey = null;
+  render();
+  await pushActiveSheetToRemote();
+}
+
+// Bulk-clears events whose date is more than a week in the past — keeps
+// anything within the last 7 days (so "today" and recent near-misses
+// don't disappear), and never touches events with no parseable date.
+const PAST_EVENT_GRACE_DAYS = 7;
+async function clearPastEvents(){
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - PAST_EVENT_GRACE_DAYS);
+  const toRemove = allEvents.filter(ev => ev.dateObj && new Date(ev.dateObj) < cutoff);
+  if(!toRemove.length){
+    alert(`Nothing to clear — no events are more than ${PAST_EVENT_GRACE_DAYS} days past.`);
+    return;
+  }
+  if(!confirm(`Remove ${toRemove.length} event${toRemove.length === 1 ? '' : 's'} dated more than ${PAST_EVENT_GRACE_DAYS} days ago? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  pushUndo();
+  const removeKeys = new Set(toRemove.map(ev => eventKey(ev)));
+  allEvents = allEvents.filter(ev => !removeKeys.has(eventKey(ev)));
+  removeKeys.forEach(k => delete annotations[k]);
   render();
   await pushActiveSheetToRemote();
 }
@@ -1219,6 +1508,159 @@ async function saveNotesNow(){
   clearTimeout(saveNotesTimer);
   await pushActiveSheetToRemote();
 }
+
+// ---------- Keyboard navigation ----------
+// One "selected" card at a time (highlighted with a border), tracked by
+// its eventKey so it survives re-renders. navigableKeys is rebuilt from
+// the DOM after every render, in the order cards actually appear on
+// screen — so j/k always matches what's visually next, regardless of
+// sort/filter/grid layout.
+let selectedKey = null;
+let selectedIndex = -1;
+let navigableKeys = [];
+
+function refreshNavigation(){
+  navigableKeys = Array.from(listRoot.querySelectorAll('.ticket[data-key], .shift-block[data-key]')).map(el => el.dataset.key);
+  if(selectedKey && navigableKeys.includes(selectedKey)){
+    selectedIndex = navigableKeys.indexOf(selectedKey);
+  } else if(navigableKeys.length){
+    selectedIndex = Math.min(selectedIndex < 0 ? 0 : selectedIndex, navigableKeys.length - 1);
+    selectedKey = navigableKeys[selectedIndex];
+  } else {
+    selectedIndex = -1;
+    selectedKey = null;
+  }
+  highlightSelected();
+}
+
+function highlightSelected(){
+  listRoot.querySelectorAll('.kb-selected').forEach(el => el.classList.remove('kb-selected'));
+  if(!selectedKey) return;
+  const el = listRoot.querySelector(`[data-key="${CSS.escape(selectedKey)}"]`);
+  if(el) el.classList.add('kb-selected');
+}
+
+function selectByIndex(idx, scroll = true){
+  if(!navigableKeys.length) return;
+  selectedIndex = Math.max(0, Math.min(navigableKeys.length - 1, idx));
+  selectedKey = navigableKeys[selectedIndex];
+  highlightSelected();
+  if(scroll){
+    const el = listRoot.querySelector(`[data-key="${CSS.escape(selectedKey)}"]`);
+    if(el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function selectedEvent(){
+  if(!selectedKey) return null;
+  return allEvents.find(ev => eventKey(ev) === selectedKey) || null;
+}
+
+// Global shortcuts — all inert while typing in a text field, except
+// Escape (which blurs/closes things) so normal typing is never hijacked.
+//   /            focus search
+//   j / ↓        select next card
+//   k / ↑        select previous card
+//   1-5          rate the selected card (same value again clears to 0)
+//   0            clear the selected card's rating
+//   p            pin/unpin the selected card
+//   n            open/close notes on the selected card
+//   Enter        open the selected card's primary ticket link
+//   c            copy the selected card's primary ticket link
+//   Delete / x   delete the selected card (asks for confirmation)
+//   Escape       close whatever's open / blur the focused field
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const isTyping = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+
+  if(e.key === 'Escape'){
+    if(isTyping) e.target.blur();
+    if(openNotesKey){ openNotesKey = null; render(); }
+    syncPopover.classList.remove('open');
+    helpPopover.classList.remove('open');
+    if(addSheetModal.style.display !== 'none') closeAddSheetModal();
+    return;
+  }
+
+  if(e.key === '/' && !isTyping){
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+    return;
+  }
+
+  // Undo/redo work outside text fields — inside a textarea, Ctrl+Z should
+  // do the browser's native text-undo instead, which isTyping already
+  // routes around since we return early below for typing contexts.
+  if((e.ctrlKey || e.metaKey) && !isTyping){
+    if(e.key === 'z' && !e.shiftKey){ e.preventDefault(); undo(); return; }
+    if(e.key === 'y' || (e.key === 'z' && e.shiftKey)){ e.preventDefault(); redo(); return; }
+  }
+
+  if(isTyping) return; // never hijack normal typing elsewhere
+
+  if(e.key === 'j' || e.key === 'ArrowDown'){ e.preventDefault(); selectByIndex(selectedIndex + 1); return; }
+  if(e.key === 'k' || e.key === 'ArrowUp'){ e.preventDefault(); selectByIndex(selectedIndex - 1); return; }
+
+  if(!selectedKey) return;
+
+  if(['1','2','3','4','5'].includes(e.key)){
+    pushUndo();
+    const ann = getAnnotation(selectedKey);
+    const val = parseInt(e.key, 10);
+    ann.rating = (ann.rating === val) ? 0 : val;
+    saveNotesSoon();
+    render();
+    return;
+  }
+  if(e.key === '0'){
+    pushUndo();
+    getAnnotation(selectedKey).rating = 0;
+    saveNotesSoon();
+    render();
+    return;
+  }
+  if(e.key === 'p'){
+    pushUndo();
+    const ann = getAnnotation(selectedKey);
+    ann.pinned = !ann.pinned;
+    saveNotesSoon();
+    render();
+    return;
+  }
+  if(e.key === 'n'){
+    const opening = openNotesKey !== selectedKey;
+    if(opening) pushUndo();
+    openNotesKey = opening ? selectedKey : null;
+    render();
+    if(openNotesKey === selectedKey){
+      const ta = listRoot.querySelector(`[data-key="${CSS.escape(selectedKey)}"] .notes-textarea`);
+      if(ta) ta.focus();
+    }
+    return;
+  }
+  if(e.key === 'Enter'){
+    const ev = selectedEvent();
+    if(ev && ev.primaryLink){
+      window.open(ev.primaryLink, '_blank', 'noopener,noreferrer');
+      window.focus();
+    }
+    return;
+  }
+  if(e.key === 'c'){
+    const ev = selectedEvent();
+    if(ev && ev.primaryLink){
+      copyToClipboard(ev.primaryLink).then(ok => {
+        if(!ok) alert('Could not copy — your browser may be blocking clipboard access.');
+      });
+    }
+    return;
+  }
+  if(e.key === 'Delete' || e.key === 'x'){
+    deleteSingleEvent(selectedKey);
+    return;
+  }
+});
 
 let sheetNameManuallyEdited = false;
 
@@ -1254,8 +1696,11 @@ function createSheetFromModal(){
   closeAddSheetModal();
   activeSheetName = trimmed;
   openNotesKey = null;
-  starredOnly = false;
-  starFilterBtn.classList.remove('active');
+  hotOnly = false;
+  hotFilterBtn.classList.remove('active');
+  newOnly = false;
+  newFilterBtn.classList.remove('active');
+  resetUndoHistory();
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
@@ -1277,8 +1722,11 @@ function addSheet(){
 function setActiveSheet(name){
   activeSheetName = name;
   openNotesKey = null;
-  starredOnly = false;
-  starFilterBtn.classList.remove('active');
+  hotOnly = false;
+  hotFilterBtn.classList.remove('active');
+  newOnly = false;
+  newFilterBtn.classList.remove('active');
+  resetUndoHistory();
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
@@ -1331,7 +1779,7 @@ function renderTabs(){
       <span class="tab-label">${escapeHtml(s.name)}</span>
       <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
     </button>
-  `).join('') + `<button class="sheet-tab add-tab" id="addSheetBtn" title="Add sheet">+</button>`;
+  `).join('') + `<button class="sheet-tab add-tab" id="addSheetBtn" title="Start a new, separate sheet (name it, choose US Open mode if it needs Day/Night)">+</button>`;
 
   sheetTabs.querySelectorAll('.sheet-tab:not(.add-tab)').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -1360,8 +1808,8 @@ function linkRow(href, label, cls){
     <div class="link-row">
       <a class="link-btn ${cls}" href="${encodeURI(href)}" target="_blank" rel="noopener noreferrer">${label}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg></a>
       <button type="button" class="copy-btn" data-href="${escapeHtml(href)}" title="Copy ${escapeHtml(label)} link" aria-label="Copy ${escapeHtml(label)} link">
-        <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-        <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        <svg class="icon-copy" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="icon-check" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
       </button>
     </div>`;
 }
@@ -1456,9 +1904,18 @@ function groupByName(events){
   return [{ heading: '', showHeading: false, showTodayTag: false, events: sorted }];
 }
 
+// Sorts by your own logged rating, highest flame count first — this is
+// statistical only in the sense that it's built from what you've actually
+// recorded, never an outside "this deal is good" guess.
+function groupByRating(events){
+  const sorted = [...events].sort((a, b) => getAnnotation(eventKey(b)).rating - getAnnotation(eventKey(a)).rating);
+  return [{ heading: '', showHeading: false, showTodayTag: false, events: sorted }];
+}
+
 function render(){
   if(activeSheetMode() === 'usopen') renderUsOpen();
   else renderStandard();
+  refreshNavigation();
 }
 
 function renderStandard(){
@@ -1476,9 +1933,11 @@ function renderStandard(){
   // allEvents.filter preserves original array order, which is what
   // "As uploaded" mode relies on.
   let filtered = allEvents.filter(ev => {
-    if(!query) return true;
-    const haystack = [ev.name, ev.venue, ev.primaryLink, ev.vividLink, ev.stubLink].join(' ').toLowerCase();
-    return haystack.includes(query);
+    if(!matchesSearch(ev, query)) return false;
+    const ann = getAnnotation(eventKey(ev));
+    if(hotOnly && !ann.rating) return false;
+    if(newOnly && !ann.isNew) return false;
+    return true;
   });
 
   countLabel.textContent = `${filtered.length} of ${allEvents.length}`;
@@ -1486,6 +1945,7 @@ function renderStandard(){
   const groups = sortMode === 'upload' ? groupByUploadOrder(filtered)
     : sortMode === 'venue' ? groupByVenue(filtered)
     : sortMode === 'name' ? groupByName(filtered)
+    : sortMode === 'rating' ? groupByRating(filtered)
     : groupByDate(filtered);
 
   if(!groups.length){
@@ -1513,53 +1973,59 @@ function renderStandard(){
       flushGrid();
       htmlParts.push(`<div class="day-heading">${escapeHtml(g.heading)}${isToday ? '<span class="tag-today">Today</span>' : ''}</div>`);
     }
-    g.events.forEach(ev => {
-      // Full date + time inside the card itself, not just the time, so
-      // each card reads on its own even without a date-based heading
-      // above it (e.g. in "As uploaded" mode).
-      const dateTime = ev.dateObj
-        ? new Date(ev.dateObj).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) +
-          ' · ' + new Date(ev.dateObj).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})
-        : '';
-      const buttons = [
-        linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
-        linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
-        linkRow(ev.stubLink, 'StubHub', 'site-stub')
-      ].filter(Boolean).join('');
-      const key = eventKey(ev);
-      const noteText = notes[key] || '';
-      const isNotesOpen = key === openNotesKey;
-      const notePreview = (!isNotesOpen && noteText.trim())
-        ? `<div class="notes-preview"><div class="note-preview-text">${escapeHtml(noteText.trim().length > 90 ? noteText.trim().slice(0,90) + '…' : noteText.trim())}</div></div>`
-        : '';
-      pendingCards.push(`
-        <div class="ticket" data-key="${escapeHtml(key)}">
-          <div class="ticket-toolbar">
-            <button type="button" class="icon-btn notes-btn ${isNotesOpen ? 'active' : ''} ${noteText.trim() ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-            </button>
-          </div>
-          <div class="ticket-main">
-            <div class="ticket-info">
-              <div class="ev-name">${escapeHtml(ev.name)}</div>
-              <div class="ev-venue">${escapeHtml(ev.venue)}</div>
-              ${dateTime ? `<div class="ev-time">${dateTime}</div>` : ''}
-            </div>
-            <div class="perf"></div>
-            <div class="ticket-actions">
-              ${buttons || '<span class="no-links">No ticket links yet</span>'}
-            </div>
-          </div>
-          ${isNotesOpen ? `
-          <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
-            <p class="notes-label">Notes</p>
-            <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(noteText)}</textarea>
-          </div>` : notePreview}
-        </div>`);
-    });
+    g.events.forEach(ev => pendingCards.push(cardHtmlStandard(ev)));
   });
   flushGrid();
   listRoot.innerHTML = htmlParts.join('');
+}
+
+// Full ticket card for standard sheets: name as the headline, date/time,
+// venue, links, and the same rating/pin/notes/prices toolbar every sheet
+// gets — the only thing that's US-Open-specific is the Day/Night split.
+function cardHtmlStandard(ev){
+  const dateHeadline = ev.dateObj
+    ? new Date(ev.dateObj).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) +
+      ' · ' + new Date(ev.dateObj).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})
+    : '';
+  const buttons = [
+    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
+    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
+    linkRow(ev.stubLink, 'StubHub', 'site-stub')
+  ].filter(Boolean).join('');
+  const key = eventKey(ev);
+  const ann = getAnnotation(key);
+  const isOpen = key === openNotesKey;
+
+  return `
+    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
+      <div class="ticket-toolbar">
+        ${ratingControlHtml(key, ann.rating)}
+        <div class="toolbar-icons-right">
+          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
+          <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+          </button>
+          <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          </button>
+          <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ticket-main">
+        <div class="ticket-info">
+          ${dateHeadline ? `<div class="ev-date">${escapeHtml(dateHeadline)}</div>` : ''}
+          <div class="ev-name">${escapeHtml(ev.name)}</div>
+          <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+        </div>
+        <div class="perf"></div>
+        <div class="ticket-actions">
+          ${buttons || '<span class="no-links">No ticket links yet</span>'}
+        </div>
+      </div>
+      ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
+    </div>`;
 }
 
 // ---------- US Open mode rendering ----------
@@ -1612,7 +2078,31 @@ function buildDateRows(dayEvents, nightEvents){
 const QUICK_LABELS = ['Floor', 'Lower Level', '100 Level', '200 Level', '300 Level', '400 Level'];
 
 function hasNotesContent(ann){
-  return !!(ann.note && ann.note.trim()) || (ann.sections && ann.sections.some(s => (s.label && s.label.trim()) || (s.price && s.price.trim())));
+  return !!(ann.note && ann.note.trim()) || !!ann.rating || (ann.sections && ann.sections.some(s => (s.label && s.label.trim()) || (s.price && s.price.trim())));
+}
+
+// Compact toolbar button: shows the current rating (flame + count) and
+// cycles 0→1→2→3→4→5→0 on click — quick to bump without opening anything.
+function ratingControlHtml(key, rating){
+  const filled = rating > 0;
+  return `
+    <button type="button" class="icon-btn rating-btn ${filled ? 'active' : ''}" data-action="rate-cycle" data-key="${escapeHtml(key)}" title="${filled ? 'Rating ' + rating + '/5 — click to change' : 'Rate this'}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
+      ${filled ? `<span class="rating-count">${rating}</span>` : ''}
+    </button>`;
+}
+
+// Precise 1-5 flame selector shown inside the open notes panel. Clicking
+// the flame that's already the current rating clears it back to 0.
+function ratingRowHtml(key, rating){
+  let flames = '';
+  for(let i = 1; i <= 5; i++){
+    const on = i <= rating;
+    flames += `<button type="button" class="rating-flame ${on ? 'filled' : ''}" data-action="rate-set" data-key="${escapeHtml(key)}" data-rating="${i}" title="Rate ${i}/5">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
+    </button>`;
+  }
+  return `<div class="rating-row">${flames}</div>`;
 }
 
 // Formats a price value: pure numbers get "$" + comma grouping (and keep
@@ -1640,7 +2130,7 @@ function notesPreviewHtml(ann){
   const priced = (ann.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
   if(priced.length){
     const shown = priced.slice(0, 5);
-    const chips = shown.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b> <span class="price-green">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
+    const chips = shown.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b> ${escapeHtml(formatPriceDisplay(s.price) || '—')}</span>`).join('');
     const more = priced.length > shown.length ? `<span class="price-preview-chip more">+${priced.length - shown.length} more</span>` : '';
     parts.push(`<div class="price-preview-row">${chips}${more}</div>`);
   }
@@ -1666,6 +2156,8 @@ function notesPanelHtml(key, ann){
     + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
+      <p class="notes-label">Rating</p>
+      ${ratingRowHtml(key, ann.rating)}
       <p class="notes-label">Notes</p>
       <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
       <p class="notes-label">Sections &amp; prices</p>
@@ -1692,18 +2184,20 @@ function shiftBlockHtml(ev, shift){
   const shiftLabel = shift === 'day' ? '☀ Day' : '☾ Night';
 
   return `
-    <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''}" data-key="${escapeHtml(key)}">
+    <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
       <div class="shift-block-toolbar">
         <span class="shift-tag shift-tag-${shift}">${shiftLabel}</span>
         <div class="shift-block-icons">
-          <button type="button" class="icon-btn star-btn ${ann.starred ? 'active' : ''}" data-action="star" data-key="${escapeHtml(key)}" title="${ann.starred ? 'Unstar' : 'Star this'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="${ann.starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </button>
+          ${ratingControlHtml(key, ann.rating)}
+          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
           </button>
           <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          </button>
+          <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this session">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
       </div>
@@ -1774,11 +2268,10 @@ function renderUsOpen(){
   }
 
   let filtered = allEvents.filter(ev => {
-    if(query){
-      const haystack = [ev.name, ev.venue, ev.primaryLink, ev.vividLink, ev.stubLink].join(' ').toLowerCase();
-      if(!haystack.includes(query)) return false;
-    }
-    if(starredOnly && !getAnnotation(eventKey(ev)).starred) return false;
+    if(!matchesSearch(ev, query)) return false;
+    const ann = getAnnotation(eventKey(ev));
+    if(hotOnly && !ann.rating) return false;
+    if(newOnly && !ann.isNew) return false;
     return true;
   });
 
@@ -1842,7 +2335,16 @@ clearBtn.addEventListener('click', () => {
   if(confirm(`Clear all events on "${activeSheetName}"?`)) clearActiveSheetEvents();
 });
 
-searchInput.addEventListener('input', render);
+searchInput.addEventListener('input', () => {
+  searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
+  render();
+});
+searchClearBtn.addEventListener('click', () => {
+  searchInput.value = '';
+  searchClearBtn.style.display = 'none';
+  searchInput.focus();
+  render();
+});
 
 sortSelect.addEventListener('change', () => {
   sortMode = sortSelect.value;
@@ -1888,19 +2390,34 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
-  // Star toggle (US Open mode)
-  const starBtn = e.target.closest('[data-action="star"]');
-  if(starBtn){
-    const ann = getAnnotation(starBtn.dataset.key);
-    ann.starred = !ann.starred;
+  // Rating: quick cycle from the compact toolbar button
+  const rateCycleBtn = e.target.closest('[data-action="rate-cycle"]');
+  if(rateCycleBtn){
+    pushUndo();
+    const ann = getAnnotation(rateCycleBtn.dataset.key);
+    ann.rating = (ann.rating + 1) % 6; // 0..5, wraps back to 0
     saveNotesSoon();
     render();
     return;
   }
 
-  // Pin toggle (US Open mode)
+  // Rating: precise pick from the 5-flame row inside the open panel.
+  // Clicking the flame that's already the current rating clears it.
+  const rateSetBtn = e.target.closest('[data-action="rate-set"]');
+  if(rateSetBtn){
+    pushUndo();
+    const ann = getAnnotation(rateSetBtn.dataset.key);
+    const clicked = parseInt(rateSetBtn.dataset.rating, 10);
+    ann.rating = (ann.rating === clicked) ? 0 : clicked;
+    saveNotesSoon();
+    render();
+    return;
+  }
+
+  // Pin toggle — applies on every sheet, not just US Open.
   const pinBtn = e.target.closest('[data-action="pin"]');
   if(pinBtn){
+    pushUndo();
     const ann = getAnnotation(pinBtn.dataset.key);
     ann.pinned = !ann.pinned;
     saveNotesSoon();
@@ -1908,13 +2425,34 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Delete a single event.
+  const deleteBtn = e.target.closest('[data-action="delete"]');
+  if(deleteBtn){
+    deleteSingleEvent(deleteBtn.dataset.key);
+    return;
+  }
+
+  // Dismiss the NEW badge without waiting for the next upload to clear it.
+  const dismissNewBtn = e.target.closest('[data-action="dismiss-new"]');
+  if(dismissNewBtn){
+    pushUndo();
+    getAnnotation(dismissNewBtn.dataset.key).isNew = false;
+    saveNotesSoon();
+    render();
+    return;
+  }
+
   // Notes panel toggle. Re-rendering keeps the always-visible preview in
   // sync with whatever was just typed, and ensures only one card's panel
-  // is open at a time.
+  // is open at a time. Snapshotting only on OPEN (not every keystroke
+  // while typing) means undo reverts the whole editing session at once,
+  // not one character at a time.
   const notesBtn = e.target.closest('[data-action="notes"]');
   if(notesBtn){
     const key = notesBtn.dataset.key;
-    openNotesKey = (openNotesKey === key) ? null : key;
+    const opening = openNotesKey !== key;
+    if(opening) pushUndo();
+    openNotesKey = opening ? key : null;
     render();
     if(openNotesKey === key){
       const ta = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] .notes-textarea`);
@@ -1970,13 +2508,9 @@ listRoot.addEventListener('input', e => {
   const textarea = e.target.closest('.notes-textarea');
   if(textarea){
     const key = textarea.dataset.key;
-    if(activeSheetMode() === 'usopen'){
-      getAnnotation(key).note = textarea.value;
-    } else {
-      notes[key] = textarea.value;
-    }
+    getAnnotation(key).note = textarea.value;
     saveNotesSoon();
-    const notesBtn = textarea.closest('.ticket').querySelector('.notes-btn');
+    const notesBtn = textarea.closest('.ticket, .shift-block').querySelector('.notes-btn');
     if(notesBtn) notesBtn.classList.toggle('has-note', !!textarea.value.trim());
     return;
   }
@@ -2031,6 +2565,7 @@ window.addEventListener('beforeunload', () => { saveNotesNow(); });
 
 async function initApp(){
   applyColumnCount();
+  applyTheme('dark');
   if(DEFAULT_SYNC_URL){
     syncUrl = DEFAULT_SYNC_URL;
     syncUrlInput.value = syncUrl;
