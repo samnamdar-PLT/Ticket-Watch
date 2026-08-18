@@ -217,28 +217,34 @@
   .ticket.shift-night{border-left-color:var(--night-color);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
 
-  /* ---------- US Open sheet layout: shift columns / date-aligned rows ---------- */
-  .shift-columns{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
-  .shift-heading{
-    font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.03em;
-    display:flex;align-items:center;gap:8px;
-    padding-bottom:10px;margin:0 0 12px;border-bottom:2px solid;
+  /* ---------- US Open merged Day+Night card ---------- */
+  .dn-merged{padding-bottom:2px;}
+  .dn-merged-date{
+    font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.02em;
+    color:var(--text);padding:12px 14px 6px;
   }
-  .shift-heading.shift-day{color:var(--day-color);border-color:var(--day-color);}
-  .shift-heading.shift-night{color:var(--night-color);border-color:var(--night-color);}
-  .dn-columns-heading{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-  .dn-row{margin-bottom:18px;}
-  .dn-date{
-    font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:.02em;
-    color:var(--text);display:flex;align-items:center;gap:8px;padding:10px 0 8px;
+  .shift-block{
+    border-top:1px solid var(--hairline);
+    padding:10px 14px 12px;
+    border-left:3px solid transparent;
   }
-  .dn-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;}
-  .dn-cell{display:flex;flex-direction:column;gap:10px;}
-  .dn-empty{
-    color:var(--muted);font-size:12.5px;
-    border:1px dashed var(--hairline);border-radius:10px;
-    padding:14px;text-align:center;
+  .shift-block.shift-day{border-left-color:var(--day-color);}
+  .shift-block.shift-night{border-left-color:var(--night-color);}
+  .shift-block.is-pinned{background:rgba(242,193,78,.05);}
+  .shift-block-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .shift-tag{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    font-weight:600;
   }
+  .shift-tag-day{color:var(--day-color);}
+  .shift-tag-night{color:var(--night-color);}
+  .shift-block-icons{display:flex;gap:2px;}
+  .shift-block-icons .icon-btn{width:24px;height:24px;}
+  .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .shift-block-info{flex:1 1 auto;min-width:120px;}
+  .shift-block-info .ev-sub{margin-top:2px;}
+  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:150px;}
+  .shift-divider{height:0;}
   .filter-btn{
     display:flex;align-items:center;gap:6px;
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
@@ -537,13 +543,10 @@
 
   .no-results{color:var(--muted);font-size:14px;padding:40px 0;text-align:center;}
 
-  @media (max-width:860px){
-    .shift-columns{grid-template-columns:1fr;}
-    .dn-columns-heading{grid-template-columns:1fr;gap:4px;}
-    .dn-grid{grid-template-columns:1fr;gap:10px;}
-  }
   @media (max-width:560px){
     h1{font-size:20px;}
+    .shift-block-main{flex-direction:column;align-items:stretch;}
+    .shift-block .ticket-actions{min-width:0;}
     .day-grid{grid-template-columns:1fr;}
     .ticket-main{flex-direction:column;}
     .perf{border-left:none;border-top:2px dashed var(--dash);width:auto;height:0;}
@@ -660,18 +663,20 @@ const cancelAddSheetBtn = $('#cancelAddSheetBtn');
 const confirmAddSheetBtn = $('#confirmAddSheetBtn');
 
 let allEvents = [];
-let sheets = [];
-let activeSheetId = null;
-let sortMode = 'upload'; // 'date' | 'upload'
+let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
+let pendingEmptySheets = []; // sheets created locally that have no pushed rows yet, so a poll doesn't make them vanish
+let activeSheetName = null;
+let sortMode = 'upload'; // 'date' | 'upload' — standard-mode sheets only; US Open always groups by date
 let notes = {}; // eventKey -> note text, used for 'standard' mode sheets
 let annotations = {}; // eventKey -> {note,starred,pinned,sections}, used for 'usopen' mode sheets
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let starredOnly = false;
 let columnCount = 3;
 const MIN_COLS = 1, MAX_COLS = 6;
+let remoteCache = []; // every raw row from the last successful fetch, across all sheets — this IS the data; nothing is cached beyond this in-memory copy
 
 function activeSheet(){
-  return sheets.find(s => s.id === activeSheetId);
+  return sheets.find(s => s.name === activeSheetName);
 }
 function activeSheetMode(){
   const s = activeSheet();
@@ -679,17 +684,20 @@ function activeSheetMode(){
 }
 
 // Reflects the active sheet's type in the header, empty-state copy, upload
-// button label, and which extra controls (starred filter) are visible.
+// button label, and which extra controls (starred filter, sort toggle) are
+// visible. US Open always groups by date, so the sort toggle only applies
+// to standard sheets.
 function updateModeUI(){
   const mode = activeSheetMode();
   const isUsOpen = mode === 'usopen';
   eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : 'Ticket List';
   starFilterBtn.style.display = isUsOpen ? 'inline-flex' : 'none';
+  sortToggle.style.display = isUsOpen ? 'none' : 'flex';
   uploadBtn.textContent = 'Add CSV';
   emptyIcon.textContent = isUsOpen ? '🎾' : '🎟️';
   if(isUsOpen){
     emptyHeading.textContent = 'No sessions yet';
-    emptyBody.textContent = 'Add a CSV to get started — sessions split automatically into Day and Night columns. Every future upload adds on top of what\'s here; duplicates are skipped, so it\'s safe to re-add the same export as it updates.';
+    emptyBody.textContent = 'Add a CSV to get started — sessions are grouped by venue, with each date\'s Day and Night sessions shown side by side. Every future upload adds on top of what\'s here; duplicates are skipped.';
   } else {
     emptyHeading.textContent = 'This sheet is empty';
     emptyBody.textContent = 'Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.';
@@ -703,28 +711,15 @@ function applyColumnCount(){
   colPlus.disabled = columnCount >= MAX_COLS;
 }
 
-async function loadColumnCount(){
-  try{
-    const res = await storageGet('ui:columns');
-    if(res && res.value){
-      const n = parseInt(res.value, 10);
-      if(!isNaN(n)) columnCount = Math.min(MAX_COLS, Math.max(MIN_COLS, n));
-    }
-  }catch(e){ /* keep default */ }
-  applyColumnCount();
-}
-
 colMinus.addEventListener('click', () => {
   if(columnCount <= MIN_COLS) return;
   columnCount--;
   applyColumnCount();
-  storageSet('ui:columns', String(columnCount));
 });
 colPlus.addEventListener('click', () => {
   if(columnCount >= MAX_COLS) return;
   columnCount++;
   applyColumnCount();
-  storageSet('ui:columns', String(columnCount));
 });
 
 starFilterBtn.addEventListener('click', () => {
@@ -734,19 +729,19 @@ starFilterBtn.addEventListener('click', () => {
 });
 
 // ---------- Google Sheets sync ----------
-// Not real-time (Sheets has no push channel to arbitrary web pages) —
-// this pushes local changes immediately, and polls the Sheet periodically
-// (plus whenever the tab regains focus) to pull in anything edited
-// directly in the spreadsheet. See Code.gs for the Apps Script backend.
+// The Google Sheet is the only place data lives — nothing is cached in
+// this browser. On load the page fetches everything fresh; every change
+// (upload, note, star, pin, price, sheet create/rename/delete) writes
+// straight back. Not real-time (Sheets has no push channel to arbitrary
+// web pages), so a background poll picks up anything edited directly in
+// the spreadsheet every ~20s, and immediately on regaining focus.
+// See Code.gs for the Apps Script backend.
 let syncUrl = null;
 let syncTimer = null;
 const SYNC_POLL_MS = 20000;
-const lastPushedSnapshot = {};   // sheetName -> JSON string we last sent
-const lastAppliedSnapshot = {};  // sheetName -> JSON string we last pulled in
 
-// Pre-filled with a working deployment so sync is on by default — no
-// manual "paste URL and click Connect" step needed. Change or blank this
-// out (and use the ☁ Sync box instead) to point at a different sheet.
+// Baked in so the page works with zero setup. Change this (or use the
+// ☁ Sync box to point at a different sheet for this browser session).
 const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbxjs98Uj7o2LzyQoWlKqdgEOJrxeE0PAm4_8U3vUII4aWraBmkkYgCjDMMKXoywwAt9/exec';
 
 function setSyncStatus(text, kind){
@@ -763,40 +758,8 @@ function updateSyncButtonState(){
   syncDisconnectBtn.style.display = connected ? 'inline-block' : 'none';
 }
 
-async function loadSyncSettings(){
-  let url = null;
-  try{
-    const res = await storageGet('ui:syncUrl');
-    if(res && res.value) url = res.value;
-  }catch(e){ /* nothing stored yet */ }
-
-  if(!url && DEFAULT_SYNC_URL){
-    let disabled = false;
-    try{
-      const d = await storageGet('ui:syncDisabled');
-      disabled = !!(d && d.value);
-    }catch(e){ /* ignore */ }
-    if(!disabled){
-      url = DEFAULT_SYNC_URL;
-      try{ await storageSet('ui:syncUrl', url); }catch(e){ /* ignore */ }
-    }
-  }
-
-  if(url){
-    syncUrl = url;
-    syncUrlInput.value = syncUrl;
-    updateSyncButtonState();
-    setSyncStatus('Connected. Syncing…', 'ok');
-    // Push what's already loaded locally first, so a poll can never
-    // mistake "remote hasn't caught up yet" for "everything was deleted".
-    await pushActiveSheetToRemote();
-    startSyncPolling();
-  }
-}
-
 function startSyncPolling(){
   clearInterval(syncTimer);
-  pollRemote();
   syncTimer = setInterval(pollRemote, SYNC_POLL_MS);
 }
 function stopSyncPolling(){
@@ -815,103 +778,107 @@ syncConnectBtn.addEventListener('click', async () => {
   const url = syncUrlInput.value.trim();
   if(!url){ setSyncStatus('Paste your Web App URL first.', 'error'); return; }
   setSyncStatus('Connecting…');
-  try{
-    const res = await fetch(url, { method: 'GET' });
-    const data = await res.json();
-    if(!data || !Array.isArray(data.events)){ throw new Error('Unexpected response'); }
-    syncUrl = url;
-    await storageSet('ui:syncUrl', url);
-    await storageDelete('ui:syncDisabled');
-    updateSyncButtonState();
-    setSyncStatus('Connected. Syncing…', 'ok');
-    // Push first — this site's data is the source of truth on connect.
-    // Only after the Sheet has it do we start polling, so the very first
-    // poll sees exactly what we just sent instead of an empty/stale sheet
-    // wiping local data.
-    await pushActiveSheetToRemote();
-    startSyncPolling();
-  }catch(err){
-    setSyncStatus('Could not connect — check the URL and that the deployment is set to "Anyone".', 'error');
-  }
+  syncUrl = url;
+  updateSyncButtonState();
+  await loadAllFromRemote();
+  startSyncPolling();
 });
 
-syncDisconnectBtn.addEventListener('click', async () => {
+syncDisconnectBtn.addEventListener('click', () => {
   syncUrl = null;
-  await storageDelete('ui:syncUrl');
-  await storageSet('ui:syncDisabled', '1'); // remembered so the default URL doesn't silently reconnect next visit
   stopSyncPolling();
   updateSyncButtonState();
-  setSyncStatus('Not connected.');
+  setSyncStatus('Not connected — nothing will be saved until you reconnect.', 'error');
 });
 
 window.addEventListener('focus', () => { if(syncUrl) pollRemote(); });
 
-function activeSheetName(){
-  const s = sheets.find(s => s.id === activeSheetId);
-  return s ? s.name : '';
-}
-
-// Pushes the currently-loaded sheet's events (with notes merged in) to the
-// Sheet. Called after any local change so the round trip starts quickly.
-async function pushActiveSheetToRemote(){
-  if(!syncUrl) return;
-  const name = activeSheetName();
-  if(!name) return;
-  const isUsOpen = activeSheetMode() === 'usopen';
-  const payloadEvents = allEvents.map(ev => {
-    if(isUsOpen){
-      const ann = getAnnotation(eventKey(ev));
-      return { ...ev, note: ann.note || '', starred: !!ann.starred, pinned: !!ann.pinned, sections: ann.sections || [] };
+// Groups the flat remote row list back into sheets (name + mode), in the
+// order each name first appears. Locally-created sheets with no pushed
+// rows yet are kept too, so they don't vanish before their first upload.
+function rebuildSheetsFromCache(){
+  const order = [];
+  const modeMap = {};
+  remoteCache.forEach(ev => {
+    if(!(ev.appSheet in modeMap)){
+      modeMap[ev.appSheet] = ev.sheetMode === 'usopen' ? 'usopen' : 'standard';
+      order.push(ev.appSheet);
     }
-    return { ...ev, note: notes[eventKey(ev)] || '' };
   });
-  const snapshot = JSON.stringify(payloadEvents);
-  if(lastPushedSnapshot[name] === snapshot) return; // nothing changed
-  lastPushedSnapshot[name] = snapshot;
-  try{
-    const res = await fetch(syncUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight Apps Script can't answer
-      body: JSON.stringify({ action: 'replaceSheet', appSheet: name, sheetMode: activeSheetMode(), events: payloadEvents })
-    });
-    const data = await res.json();
-    if(data && Array.isArray(data.events)){
-      lastAppliedSnapshot[name] = JSON.stringify(data.events.filter(e => e.appSheet === name));
-    }
-    setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
-  }catch(err){
-    setSyncStatus('Last push failed — will retry on next change.', 'error');
+  let rebuilt = order.map(name => ({ name, mode: modeMap[name] }));
+  pendingEmptySheets = pendingEmptySheets.filter(p => !rebuilt.some(s => s.name === p.name));
+  rebuilt = rebuilt.concat(pendingEmptySheets);
+  sheets = rebuilt.length ? rebuilt : [{ name: 'Sheet 1', mode: 'standard' }];
+}
+
+// Rebuilds allEvents/notes/annotations for whichever sheet is active, from
+// the in-memory remoteCache — no fetch needed, it's already there.
+function syncActiveSheetFromCache(){
+  const rows = remoteCache.filter(ev => ev.appSheet === activeSheetName);
+  allEvents = rows.map(ev => {
+    const parsed = parseEventDate(ev.dateStr);
+    return {
+      name: ev.name, venue: ev.venue, dateStr: ev.dateStr,
+      dateObj: parsed ? parsed.toISOString() : null,
+      primarySite: ev.primarySite, primaryLink: ev.primaryLink,
+      vividLink: ev.vividLink, stubLink: ev.stubLink
+    };
+  });
+  notes = {};
+  annotations = {};
+  rows.forEach((ev, idx) => {
+    const key = eventKey(allEvents[idx]);
+    if(ev.note) notes[key] = ev.note;
+    annotations[key] = { note: ev.note || '', starred: !!ev.starred, pinned: !!ev.pinned, sections: ev.sections || [] };
+  });
+  metaLine.textContent = allEvents.length ? `${allEvents.length} events · live from Google Sheets` : '';
+}
+
+// Full initial load: fetch everything, rebuild the sheet list, show the
+// first one. Falls back to one empty local-only sheet if there's no
+// connection, since there's nothing else to show.
+async function loadAllFromRemote(){
+  if(!syncUrl){
+    sheets = [{ name: 'Sheet 1', mode: 'standard' }];
+    activeSheetName = 'Sheet 1';
+    allEvents = []; notes = {}; annotations = {};
+    renderTabs(); updateModeUI(); render();
+    setSyncStatus('Not connected — nothing will be saved until you connect.', 'error');
+    return;
   }
-}
-
-async function pushSheetRename(oldName, newName){
-  if(!syncUrl || !oldName || oldName === newName) return;
+  setSyncStatus('Loading…');
+  let data;
   try{
-    await fetch(syncUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'renameSheet', oldName, newName })
-    });
-  }catch(e){ /* will reconcile on next poll */ }
+    const res = await fetch(syncUrl, { method: 'GET' });
+    data = await res.json();
+  }catch(err){
+    setSyncStatus('Could not reach the Google Sheet — check the URL and connection.', 'error');
+    sheets = [{ name: 'Sheet 1', mode: 'standard' }];
+    activeSheetName = 'Sheet 1';
+    allEvents = []; notes = {}; annotations = {};
+    renderTabs(); updateModeUI(); render();
+    return;
+  }
+  if(!data || !Array.isArray(data.events)){
+    setSyncStatus('Unexpected response from the sheet.', 'error');
+    return;
+  }
+  remoteCache = data.events;
+  rebuildSheetsFromCache();
+  activeSheetName = sheets.length ? sheets[0].name : null;
+  syncActiveSheetFromCache();
+  renderTabs();
+  updateModeUI();
+  render();
+  updateSyncButtonState();
+  setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
 
-async function pushSheetDelete(name){
-  if(!syncUrl || !name) return;
-  try{
-    await fetch(syncUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'deleteSheet', appSheet: name })
-    });
-  }catch(e){ /* will reconcile on next poll */ }
-}
-
-// Pulls the full dataset from the Sheet and, for any app-sheet whose data
-// differs from what we last pushed/pulled (i.e. a genuine external edit,
-// not an echo of our own change), applies it locally and re-renders.
-// Pushing is the primary direction — a pull is never allowed to wipe
-// non-empty local data with an empty remote result (that almost always
-// means the remote just hasn't caught up yet, not a real deletion).
+// Background poll: re-fetches everything and re-derives sheets + the
+// active sheet's data from scratch, since the Sheet is the sole source of
+// truth. Skipped while a notes/price panel is open, so it can't yank a
+// card's editor out from under an in-progress edit — the fresher data is
+// still cached in remoteCache and will show on the next render.
 async function pollRemote(){
   if(!syncUrl) return;
   let data;
@@ -923,101 +890,80 @@ async function pollRemote(){
     return;
   }
   if(!data || !Array.isArray(data.events)) return;
+  remoteCache = data.events;
 
-  const byName = {};
-  data.events.forEach(ev => {
-    if(!byName[ev.appSheet]) byName[ev.appSheet] = [];
-    byName[ev.appSheet].push(ev);
-  });
-
-  for(const name of Object.keys(byName)){
-    const remoteEvents = byName[name];
-    const snapshot = JSON.stringify(remoteEvents);
-    if(snapshot === lastPushedSnapshot[name] || snapshot === lastAppliedSnapshot[name]) continue;
-
-    if(remoteEvents.length === 0){
-      const existingSheet = sheets.find(s => s.name === name);
-      if(existingSheet){
-        let localCount = 0;
-        if(existingSheet.id === activeSheetId){
-          localCount = allEvents.length;
-        } else {
-          try{
-            const res = await storageGet(`sheet:${existingSheet.id}:events`);
-            localCount = (res && res.value) ? JSON.parse(res.value).length : 0;
-          }catch(e){ localCount = 0; }
-        }
-        if(localCount > 0){
-          // Remote hasn't caught up yet — re-push instead of wiping local data.
-          if(existingSheet.id === activeSheetId){
-            lastPushedSnapshot[name] = null;
-            await pushActiveSheetToRemote();
-          }
-          continue;
-        }
-      }
-    }
-
-    lastAppliedSnapshot[name] = snapshot;
-    await applyRemoteSheet(name, remoteEvents);
+  if(openNotesKey !== null){
+    setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
+    return;
   }
+
+  const prevActive = activeSheetName;
+  rebuildSheetsFromCache();
+  activeSheetName = sheets.some(s => s.name === prevActive) ? prevActive : (sheets.length ? sheets[0].name : null);
+  syncActiveSheetFromCache();
+  renderTabs();
+  updateModeUI();
+  render();
   setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
 
-// Writes remote data for one app-sheet into local storage (creating the
-// sheet locally if it doesn't exist yet, using the mode carried in the
-// remote data itself — not guessed — so a fresh browser reconstructs the
-// right layout/features). Populates both the simple-notes and full
-// annotations stores regardless of mode, so nothing is lost either way.
-async function applyRemoteSheet(name, remoteEvents){
-  const remoteMode = (remoteEvents[0] && remoteEvents[0].sheetMode === 'usopen') ? 'usopen' : 'standard';
-  let sheet = sheets.find(s => s.name === name);
-  if(!sheet){
-    sheet = { id: makeSheetId(), name, mode: remoteMode, createdAt: Date.now() };
-    sheets.push(sheet);
-    await persistSheetsIndex();
-    renderTabs();
-  } else if(sheet.mode !== remoteMode){
-    // The spreadsheet is the source of truth for type once synced.
-    sheet.mode = remoteMode;
-    await persistSheetsIndex();
-    renderTabs();
+// Pushes the currently-loaded sheet's events (with notes/star/pin/prices
+// merged in) to the Sheet. The response is the full authoritative dataset,
+// so remoteCache is refreshed from it directly — no separate local write.
+async function pushActiveSheetToRemote(){
+  if(!syncUrl){
+    setSyncStatus('Not connected — this change was not saved.', 'error');
+    return;
   }
-
-  const localEvents = remoteEvents.map(ev => {
-    const parsed = parseEventDate(ev.dateStr);
-    return {
-      name: ev.name, venue: ev.venue, dateStr: ev.dateStr,
-      dateObj: parsed ? parsed.toISOString() : null,
-      primarySite: ev.primarySite, primaryLink: ev.primaryLink,
-      vividLink: ev.vividLink, stubLink: ev.stubLink
-    };
+  const name = activeSheetName;
+  if(!name) return;
+  const mode = activeSheetMode();
+  const isUsOpen = mode === 'usopen';
+  const payloadEvents = allEvents.map(ev => {
+    if(isUsOpen){
+      const ann = getAnnotation(eventKey(ev));
+      return { ...ev, note: ann.note || '', starred: !!ann.starred, pinned: !!ann.pinned, sections: ann.sections || [] };
+    }
+    return { ...ev, note: notes[eventKey(ev)] || '' };
   });
-  const localNotes = {};
-  const localAnnotations = {};
-  remoteEvents.forEach((ev, idx) => {
-    const key = eventKey(localEvents[idx]);
-    if(ev.note) localNotes[key] = ev.note;
-    localAnnotations[key] = {
-      note: ev.note || '',
-      starred: !!ev.starred,
-      pinned: !!ev.pinned,
-      sections: ev.sections || []
-    };
-  });
-
-  await storageSet(`sheet:${sheet.id}:events`, JSON.stringify(localEvents));
-  await storageSet(`sheet:${sheet.id}:notes`, JSON.stringify(localNotes));
-  await storageSet(`sheet:${sheet.id}:annotations`, JSON.stringify(localAnnotations));
-  await storageSet(`sheet:${sheet.id}:meta`, JSON.stringify({ count: localEvents.length, uploadedAt: new Date().toISOString() }));
-
-  if(sheet.id === activeSheetId){
-    allEvents = localEvents;
-    notes = localNotes;
-    annotations = localAnnotations;
-    updateModeUI();
-    render();
+  try{
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight Apps Script can't answer
+      body: JSON.stringify({ action: 'replaceSheet', appSheet: name, sheetMode: mode, events: payloadEvents })
+    });
+    const data = await res.json();
+    if(data && Array.isArray(data.events)) remoteCache = data.events;
+    setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
+  }catch(err){
+    setSyncStatus('Save failed — check your connection and try again.', 'error');
   }
+}
+
+async function pushSheetRename(oldName, newName){
+  if(!syncUrl) return;
+  try{
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'renameSheet', oldName, newName })
+    });
+    const data = await res.json();
+    if(data && Array.isArray(data.events)) remoteCache = data.events;
+  }catch(e){ setSyncStatus('Rename may not have saved — check your connection.', 'error'); }
+}
+
+async function pushSheetDelete(name){
+  if(!syncUrl) return;
+  try{
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'deleteSheet', appSheet: name })
+    });
+    const data = await res.json();
+    if(data && Array.isArray(data.events)) remoteCache = data.events;
+  }catch(e){ setSyncStatus('Delete may not have saved — check your connection.', 'error'); }
 }
 
 // ---------- CSV parsing ----------
@@ -1196,138 +1142,22 @@ function recordsFromCSV(text){
   return records;
 }
 
-// ---------- Storage ----------
-// window.storage only exists inside the Claude.ai artifact viewer. When this
-// page is hosted elsewhere (GitHub Pages, a local file, etc.) we fall back
-// to the browser's own localStorage so saving still works.
-const hasClaudeStorage = () => (typeof window.storage !== 'undefined' && window.storage && typeof window.storage.set === 'function');
-
-async function storageGet(key){
-  if(hasClaudeStorage()){
-    try{ return await window.storage.get(key, false); }
-    catch(e){ return null; }
+// Identifies "the same event" for note-keeping purposes, stable across
+// re-uploads as long as the ticket link or name/venue/date stay the same.
+function eventKey(ev){
+  if(ev.primaryLink && ev.primaryLink.trim()){
+    return 'pl:' + ev.primaryLink.trim().toLowerCase();
   }
-  const v = localStorage.getItem(key);
-  return v !== null ? { value: v } : null;
+  return 'nv:' + [ev.name, ev.venue, ev.dateStr].join('|').trim().toLowerCase();
 }
 
-async function storageSet(key, value){
-  if(hasClaudeStorage()){
-    try{ return await window.storage.set(key, value, false); }
-    catch(e){ /* fall through to localStorage as backup */ }
-  }
-  localStorage.setItem(key, value);
-  return { value };
-}
-
-async function storageDelete(key){
-  if(hasClaudeStorage()){
-    try{ await window.storage.delete(key, false); return; }
-    catch(e){ /* fall through */ }
-  }
-  localStorage.removeItem(key);
-}
-
-function makeSheetId(){
-  return 'sh_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-async function persistSheetsIndex(){
-  await storageSet('sheets:index', JSON.stringify(sheets));
-}
-
-async function loadSheets(){
-  try{
-    const idxRes = await storageGet('sheets:index');
-    if(idxRes && idxRes.value){
-      sheets = JSON.parse(idxRes.value);
-    }
-  }catch(e){ sheets = []; }
-
-  // Older saved sheets predate the mode field — treat them as 'standard'.
-  sheets.forEach(s => { if(!s.mode) s.mode = 'standard'; });
-
-  if(!sheets.length){
-    const id = makeSheetId();
-    sheets = [{ id, name: 'Sheet 1', mode: 'standard', createdAt: Date.now() }];
-    await persistSheetsIndex();
-    // Migrate data saved by the earlier single-sheet version of this page, if any.
-    try{
-      const legacyEvents = await storageGet('events:data');
-      if(legacyEvents && legacyEvents.value){
-        await storageSet(`sheet:${id}:events`, legacyEvents.value);
-        const legacyMeta = await storageGet('events:meta');
-        if(legacyMeta && legacyMeta.value){
-          await storageSet(`sheet:${id}:meta`, legacyMeta.value);
-        }
-      }
-    }catch(e){ /* no legacy data, ignore */ }
-  }
-
-  let startId = sheets[0].id;
-  try{
-    const activeRes = await storageGet('sheets:active');
-    if(activeRes && activeRes.value && sheets.some(s => s.id === activeRes.value)){
-      startId = activeRes.value;
-    }
-  }catch(e){ /* ignore */ }
-
-  await setActiveSheet(startId, false);
-}
-
-async function setActiveSheet(id, persist = true){
-  await saveNotesNow(); // flush pending note/annotation edits for the sheet we're leaving
-  activeSheetId = id;
-  openNotesKey = null;
-  starredOnly = false;
-  if(starFilterBtn) starFilterBtn.classList.remove('active');
-  if(persist) await storageSet('sheets:active', id);
-  renderTabs();
-  updateModeUI();
-  await loadActiveSheetEvents();
-}
-
-async function loadActiveSheetEvents(){
-  try{
-    const res = await storageGet(`sheet:${activeSheetId}:events`);
-    allEvents = (res && res.value) ? JSON.parse(res.value) : [];
-  }catch(e){ allEvents = []; }
-  try{
-    const notesRes = await storageGet(`sheet:${activeSheetId}:notes`);
-    notes = (notesRes && notesRes.value) ? JSON.parse(notesRes.value) : {};
-  }catch(e){ notes = {}; }
-  try{
-    const annRes = await storageGet(`sheet:${activeSheetId}:annotations`);
-    annotations = (annRes && annRes.value) ? JSON.parse(annRes.value) : {};
-  }catch(e){ annotations = {}; }
-  try{
-    const meta = await storageGet(`sheet:${activeSheetId}:meta`);
-    if(meta && meta.value){
-      const m = JSON.parse(meta.value);
-      metaLine.textContent = `Loaded ${m.count} events · updated ${new Date(m.uploadedAt).toLocaleString()}`;
-    } else {
-      metaLine.textContent = '';
-    }
-  }catch(e){ metaLine.textContent = ''; }
-  updateModeUI();
-  render();
-}
-
-let saveNotesTimer = null;
-function saveNotesSoon(){
-  clearTimeout(saveNotesTimer);
-  saveNotesTimer = setTimeout(saveNotesNow, 500);
-}
-async function saveNotesNow(){
-  clearTimeout(saveNotesTimer);
-  try{
-    if(activeSheetMode() === 'usopen'){
-      await storageSet(`sheet:${activeSheetId}:annotations`, JSON.stringify(annotations));
-    } else {
-      await storageSet(`sheet:${activeSheetId}:notes`, JSON.stringify(notes));
-    }
-  }catch(e){ /* ignore */ }
-  pushActiveSheetToRemote();
+// New uploads add on top of what's here; matching events (same key) get
+// their ticket data refreshed, true duplicates are skipped.
+function mergeEvents(existing, incoming){
+  const map = new Map();
+  existing.forEach(ev => map.set(eventKey(ev), ev));
+  incoming.forEach(ev => map.set(eventKey(ev), ev));
+  return Array.from(map.values());
 }
 
 // Reads/creates the {note,starred,pinned,sections} record for one event,
@@ -1339,37 +1169,11 @@ function getAnnotation(key){
   return annotations[key];
 }
 
-// Identifies "the same event" for note-keeping purposes, stable across
-// re-uploads as long as the ticket link or name/venue/date stay the same.
-function eventKey(ev){
-  if(ev.primaryLink && ev.primaryLink.trim()){
-    return 'pl:' + ev.primaryLink.trim().toLowerCase();
-  }
-  return 'nv:' + [ev.name, ev.venue, ev.dateStr].join('|').trim().toLowerCase();
-}
-
-// New uploads to a 'usopen' sheet add on top of what's here; matching
-// events (same key) get their ticket data refreshed, true duplicates are
-// skipped. Mirrors the identity check in eventKey.
-function mergeEvents(existing, incoming){
-  const map = new Map();
-  existing.forEach(ev => map.set(eventKey(ev), ev));
-  incoming.forEach(ev => map.set(eventKey(ev), ev));
-  return Array.from(map.values());
-}
-
 async function saveEventsToActiveSheet(events){
   allEvents = events;
-  try{
-    await storageSet(`sheet:${activeSheetId}:events`, JSON.stringify(events));
-    const meta = { count: events.length, uploadedAt: new Date().toISOString() };
-    await storageSet(`sheet:${activeSheetId}:meta`, JSON.stringify(meta));
-    metaLine.textContent = `Loaded ${meta.count} events · updated ${new Date(meta.uploadedAt).toLocaleString()}`;
-  }catch(e){
-    metaLine.textContent = `Loaded ${events.length} events (not saved for next visit — storage unavailable)`;
-  }
+  metaLine.textContent = `${events.length} events · live from Google Sheets`;
   render();
-  pushActiveSheetToRemote();
+  await pushActiveSheetToRemote();
 }
 
 // Every upload adds to whatever's on the active sheet — matching events
@@ -1377,7 +1181,7 @@ async function saveEventsToActiveSheet(events){
 // ones get appended, and true duplicates are skipped. Notes, stars, pins,
 // and prices are keyed by event identity too, so they're untouched by an
 // upload even when that event's other fields change. Uploads never create
-// a new sheet automatically anymore — use "+" for that, on purpose.
+// a new sheet automatically — use "+" for that, on purpose.
 async function handleCsvUpload(file, text){
   const records = recordsFromCSV(text);
   if(!records.length){
@@ -1389,21 +1193,30 @@ async function handleCsvUpload(file, text){
 }
 
 async function clearActiveSheetEvents(){
-  await storageDelete(`sheet:${activeSheetId}:events`);
-  await storageDelete(`sheet:${activeSheetId}:meta`);
-  await storageDelete(`sheet:${activeSheetId}:notes`);
-  await storageDelete(`sheet:${activeSheetId}:annotations`);
   allEvents = [];
   notes = {};
   annotations = {};
   metaLine.textContent = '';
   render();
-  pushActiveSheetToRemote();
+  await pushActiveSheetToRemote();
 }
+
+let saveNotesTimer = null;
+function saveNotesSoon(){
+  clearTimeout(saveNotesTimer);
+  saveNotesTimer = setTimeout(saveNotesNow, 500);
+}
+async function saveNotesNow(){
+  clearTimeout(saveNotesTimer);
+  await pushActiveSheetToRemote();
+}
+
+let sheetNameManuallyEdited = false;
 
 function openAddSheetModal(){
   newSheetNameInput.value = `Sheet ${sheets.length + 1}`;
   newSheetUsOpenCheckbox.checked = false;
+  sheetNameManuallyEdited = false;
   addSheetModal.style.display = 'flex';
   newSheetNameInput.focus();
   newSheetNameInput.select();
@@ -1412,15 +1225,32 @@ function closeAddSheetModal(){
   addSheetModal.style.display = 'none';
 }
 
-async function createSheetFromModal(){
+newSheetNameInput.addEventListener('input', () => { sheetNameManuallyEdited = true; });
+newSheetUsOpenCheckbox.addEventListener('change', () => {
+  if(sheetNameManuallyEdited) return; // don't clobber a name they've actually typed
+  newSheetNameInput.value = newSheetUsOpenCheckbox.checked ? 'US Open' : `Sheet ${sheets.length + 1}`;
+});
+
+function createSheetFromModal(){
   const isUsOpen = newSheetUsOpenCheckbox.checked;
   const defaultName = isUsOpen ? 'US Open' : `Sheet ${sheets.length + 1}`;
   const trimmed = newSheetNameInput.value.trim() || defaultName;
-  const id = makeSheetId();
-  sheets.push({ id, name: trimmed, mode: isUsOpen ? 'usopen' : 'standard', createdAt: Date.now() });
-  await persistSheetsIndex();
+  if(sheets.some(s => s.name === trimmed)){
+    alert('A sheet with that name already exists.');
+    return;
+  }
+  const entry = { name: trimmed, mode: isUsOpen ? 'usopen' : 'standard' };
+  sheets.push(entry);
+  pendingEmptySheets.push(entry);
   closeAddSheetModal();
-  await setActiveSheet(id);
+  activeSheetName = trimmed;
+  openNotesKey = null;
+  starredOnly = false;
+  starFilterBtn.classList.remove('active');
+  syncActiveSheetFromCache();
+  renderTabs();
+  updateModeUI();
+  render();
 }
 
 cancelAddSheetBtn.addEventListener('click', closeAddSheetModal);
@@ -1435,65 +1265,79 @@ function addSheet(){
   openAddSheetModal();
 }
 
-async function renameSheet(id){
-  const sheet = sheets.find(s => s.id === id);
-  if(!sheet) return;
-  const name = prompt('Rename sheet', sheet.name);
-  if(name === null) return;
-  const trimmed = name.trim();
-  if(!trimmed || trimmed === sheet.name) return;
-  const oldName = sheet.name;
-  sheet.name = trimmed;
-  await persistSheetsIndex();
+function setActiveSheet(name){
+  activeSheetName = name;
+  openNotesKey = null;
+  starredOnly = false;
+  starFilterBtn.classList.remove('active');
+  syncActiveSheetFromCache();
   renderTabs();
-  pushSheetRename(oldName, trimmed);
+  updateModeUI();
+  render();
 }
 
-async function deleteSheet(id){
+async function renameSheet(oldName){
+  const sheet = sheets.find(s => s.name === oldName);
+  if(!sheet) return;
+  const newName = prompt('Rename sheet', sheet.name);
+  if(newName === null) return;
+  const trimmed = newName.trim();
+  if(!trimmed || trimmed === oldName) return;
+  if(sheets.some(s => s.name === trimmed)){
+    alert('A sheet with that name already exists.');
+    return;
+  }
+  sheet.name = trimmed;
+  const pending = pendingEmptySheets.find(p => p.name === oldName);
+  if(pending) pending.name = trimmed;
+  remoteCache.forEach(ev => { if(ev.appSheet === oldName) ev.appSheet = trimmed; });
+  if(activeSheetName === oldName) activeSheetName = trimmed;
+  renderTabs();
+  await pushSheetRename(oldName, trimmed);
+}
+
+async function deleteSheet(name){
   if(sheets.length <= 1){
     alert("You need at least one sheet — try renaming it or clearing its data instead.");
     return;
   }
-  const sheet = sheets.find(s => s.id === id);
-  if(!sheet) return;
-  if(!confirm(`Delete "${sheet.name}"? This can't be undone.`)) return;
-  sheets = sheets.filter(s => s.id !== id);
-  await persistSheetsIndex();
-  await storageDelete(`sheet:${id}:events`);
-  await storageDelete(`sheet:${id}:meta`);
-  await storageDelete(`sheet:${id}:notes`);
-  await storageDelete(`sheet:${id}:annotations`);
-  pushSheetDelete(sheet.name);
-  if(activeSheetId === id){
-    await setActiveSheet(sheets[0].id);
-  } else {
-    renderTabs();
+  if(!confirm(`Delete "${name}"? This can't be undone.`)) return;
+  sheets = sheets.filter(s => s.name !== name);
+  pendingEmptySheets = pendingEmptySheets.filter(p => p.name !== name);
+  remoteCache = remoteCache.filter(ev => ev.appSheet !== name);
+  if(activeSheetName === name){
+    activeSheetName = sheets[0].name;
+    syncActiveSheetFromCache();
   }
+  renderTabs();
+  updateModeUI();
+  render();
+  await pushSheetDelete(name);
 }
 
 function renderTabs(){
   sheetTabs.innerHTML = sheets.map(s => `
-    <button class="sheet-tab ${s.id === activeSheetId ? 'active' : ''}" data-id="${s.id}" title="Double-click to rename">
+    <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Double-click to rename">
       <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
-      <span class="tab-close" data-id="${s.id}" title="Delete sheet">×</span>
+      <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
     </button>
   `).join('') + `<button class="sheet-tab add-tab" id="addSheetBtn" title="Add sheet">+</button>`;
 
   sheetTabs.querySelectorAll('.sheet-tab:not(.add-tab)').forEach(btn => {
     btn.addEventListener('click', e => {
       if(e.target.classList.contains('tab-close')) return;
-      if(btn.dataset.id !== activeSheetId) setActiveSheet(btn.dataset.id);
+      if(btn.dataset.name !== activeSheetName) setActiveSheet(btn.dataset.name);
     });
     btn.addEventListener('dblclick', e => {
       if(e.target.classList.contains('tab-close')) return;
-      renameSheet(btn.dataset.id);
+      renameSheet(btn.dataset.name);
     });
   });
   sheetTabs.querySelectorAll('.tab-close').forEach(x => {
     x.addEventListener('click', e => {
       e.stopPropagation();
-      deleteSheet(x.dataset.id);
+      deleteSheet(x.dataset.name);
     });
   });
   const addBtn = document.getElementById('addSheetBtn');
@@ -1603,13 +1447,26 @@ function renderStandard(){
   }
 
   const now = new Date();
-  listRoot.innerHTML = groups.map(g => {
+  // Consecutive groups with no heading (the common case for "As uploaded"
+  // when most events have a unique venue) flow into one shared grid, so
+  // the column count is actually used — otherwise each 1-card group got
+  // its own single-item grid and every card ended up in column 1.
+  const htmlParts = [];
+  let pendingCards = [];
+  const flushGrid = () => {
+    if(pendingCards.length){
+      htmlParts.push(`<div class="day-grid">${pendingCards.join('')}</div>`);
+      pendingCards = [];
+    }
+  };
+  groups.forEach(g => {
     const firstEv = g.events[0];
     const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
-    const heading = g.showHeading
-      ? `<div class="day-heading">${escapeHtml(g.heading)}${isToday ? '<span class="tag-today">Today</span>' : ''}</div>`
-      : '';
-    const tickets = g.events.map(ev => {
+    if(g.showHeading){
+      flushGrid();
+      htmlParts.push(`<div class="day-heading">${escapeHtml(g.heading)}${isToday ? '<span class="tag-today">Today</span>' : ''}</div>`);
+    }
+    g.events.forEach(ev => {
       // Full date + time inside the card itself, not just the time, so
       // each card reads on its own even without a date-based heading
       // above it (e.g. in "As uploaded" mode).
@@ -1628,7 +1485,7 @@ function renderStandard(){
       const notePreview = (!isNotesOpen && noteText.trim())
         ? `<div class="notes-preview"><div class="note-preview-text">${escapeHtml(noteText.trim().length > 90 ? noteText.trim().slice(0,90) + '…' : noteText.trim())}</div></div>`
         : '';
-      return `
+      pendingCards.push(`
         <div class="ticket" data-key="${escapeHtml(key)}">
           <div class="ticket-toolbar">
             <button type="button" class="icon-btn notes-btn ${isNotesOpen ? 'active' : ''} ${noteText.trim() ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes">
@@ -1651,10 +1508,11 @@ function renderStandard(){
             <p class="notes-label">Notes</p>
             <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(noteText)}</textarea>
           </div>` : notePreview}
-        </div>`;
-    }).join('');
-    return heading + `<div class="day-grid">${tickets}</div>`;
-  }).join('');
+        </div>`);
+    });
+  });
+  flushGrid();
+  listRoot.innerHTML = htmlParts.join('');
 }
 
 // ---------- US Open mode rendering ----------
@@ -1769,12 +1627,11 @@ function notesPanelHtml(key, ann){
     </div>`;
 }
 
-function cardHtmlUsOpen(ev, shift){
+// Renders one session's info + links + star/pin/notes as a sub-block
+// inside a merged date card — not a standalone card of its own.
+function shiftBlockHtml(ev, shift){
   const key = eventKey(ev);
   const ann = getAnnotation(key);
-  const dateTitle = ev.dateObj
-    ? new Date(ev.dateObj).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
-    : 'Date TBD';
   const time = ev.dateObj
     ? new Date(ev.dateObj).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})
     : '';
@@ -1785,32 +1642,75 @@ function cardHtmlUsOpen(ev, shift){
     linkRow(ev.stubLink, 'StubHub', 'site-stub')
   ].filter(Boolean).join('');
   const isOpen = key === openNotesKey;
+  const shiftLabel = shift === 'day' ? '☀ Day' : '☾ Night';
 
   return `
-    <div class="ticket shift-${shift} ${ann.pinned ? 'is-pinned' : ''}" data-key="${escapeHtml(key)}">
-      <div class="ticket-toolbar">
-        <button type="button" class="icon-btn star-btn ${ann.starred ? 'active' : ''}" data-action="star" data-key="${escapeHtml(key)}" title="${ann.starred ? 'Unstar' : 'Star this'}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${ann.starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        </button>
-        <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
-        </button>
-        <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-        </button>
+    <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''}" data-key="${escapeHtml(key)}">
+      <div class="shift-block-toolbar">
+        <span class="shift-tag shift-tag-${shift}">${shiftLabel}</span>
+        <div class="shift-block-icons">
+          <button type="button" class="icon-btn star-btn ${ann.starred ? 'active' : ''}" data-action="star" data-key="${escapeHtml(key)}" title="${ann.starred ? 'Unstar' : 'Star this'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="${ann.starred ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+          </button>
+          <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="ticket-main">
-        <div class="ticket-info">
-          <div class="ev-date">${escapeHtml(dateTitle)}</div>
+      <div class="shift-block-main">
+        <div class="shift-block-info">
           ${time ? `<div class="ev-time">${time}</div>` : ''}
           ${subParts.length ? `<div class="ev-sub">${escapeHtml(subParts.join(' · '))}</div>` : ''}
         </div>
-        <div class="perf"></div>
         <div class="ticket-actions">
           ${buttons || '<span class="no-links">No ticket links yet</span>'}
         </div>
       </div>
       ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
+    </div>`;
+}
+
+// One card per date: Day session(s) and Night session(s) stacked inside
+// the same card, each with its own links/star/pin/notes. A shift with no
+// session that date just isn't rendered — no empty placeholder eating
+// space, and the card only takes up as much room as it actually needs.
+function dnMergedCardHtml(row){
+  const blocks = [];
+  row.day.forEach(ev => blocks.push(shiftBlockHtml(ev, 'day')));
+  if(row.day.length && row.night.length) blocks.push('<div class="shift-divider"></div>');
+  row.night.forEach(ev => blocks.push(shiftBlockHtml(ev, 'night')));
+  return `
+    <div class="ticket dn-merged">
+      <div class="dn-merged-date">${escapeHtml(row.label)}</div>
+      ${blocks.join('')}
+    </div>`;
+}
+
+// Renders one category's (venue's) worth of dates as a grid of merged
+// Day+Night cards, honoring the column-count control.
+function dnRowsHtml(events){
+  const day = sortByDateAsc(events.filter(ev => classifyShift(ev) === 'day'));
+  const night = sortByDateAsc(events.filter(ev => classifyShift(ev) === 'night'));
+  const rows = buildDateRows(day, night);
+  return `<div class="day-grid">${rows.map(dnMergedCardHtml).join('')}</div>`;
+}
+
+
+
+// One event by itself, e.g. for the Pinned section — shows its date plus
+// a single shift-block, using the same look as a merged card.
+function pinnedCardHtml(ev){
+  const shift = classifyShift(ev);
+  const dateLabel = ev.dateObj
+    ? new Date(ev.dateObj).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
+    : 'Date TBD';
+  return `
+    <div class="ticket dn-merged">
+      <div class="dn-merged-date">${escapeHtml(dateLabel)}</div>
+      ${shiftBlockHtml(ev, shift)}
     </div>`;
 }
 
@@ -1839,8 +1739,6 @@ function renderUsOpen(){
 
   const pinned = sortByDateAsc(filtered.filter(ev => getAnnotation(eventKey(ev)).pinned));
   const rest = filtered.filter(ev => !getAnnotation(eventKey(ev)).pinned);
-  const restDay = rest.filter(ev => classifyShift(ev) === 'day');
-  const restNight = rest.filter(ev => classifyShift(ev) === 'night');
 
   if(!pinned.length && !rest.length){
     listRoot.innerHTML = '<div class="no-results">No sessions match your search.</div>';
@@ -1850,35 +1748,23 @@ function renderUsOpen(){
   let html = '';
   if(pinned.length){
     html += `<div class="day-heading">📌 Pinned</div>
-      <div class="day-grid">${pinned.map(ev => cardHtmlUsOpen(ev, classifyShift(ev))).join('')}</div>`;
+      <div class="day-grid">${pinned.map(pinnedCardHtml).join('')}</div>`;
   }
 
-  if(sortMode === 'date'){
-    const rows = buildDateRows(sortByDateAsc(restDay), sortByDateAsc(restNight));
-    html += `<div class="dn-columns-heading">
-        <div class="shift-heading shift-day">☀ Day Sessions</div>
-        <div class="shift-heading shift-night">☾ Night Sessions</div>
-      </div>
-      ${rows.map(row => `
-        <div class="dn-row">
-          <div class="dn-date">${escapeHtml(row.label)}</div>
-          <div class="dn-grid">
-            <div class="dn-cell">${row.day.length ? row.day.map(ev => cardHtmlUsOpen(ev, 'day')).join('') : '<div class="dn-empty">No day session</div>'}</div>
-            <div class="dn-cell">${row.night.length ? row.night.map(ev => cardHtmlUsOpen(ev, 'night')).join('') : '<div class="dn-empty">No night session</div>'}</div>
-          </div>
-        </div>`).join('')}`;
-  } else {
-    html += `<div class="shift-columns">
-      <div class="shift-col">
-        <div class="shift-heading shift-day">☀ Day Sessions</div>
-        <div class="day-grid">${restDay.length ? restDay.map(ev => cardHtmlUsOpen(ev, 'day')).join('') : '<div class="no-results" style="padding:16px 0;">No day sessions.</div>'}</div>
-      </div>
-      <div class="shift-col">
-        <div class="shift-heading shift-night">☾ Night Sessions</div>
-        <div class="day-grid">${restNight.length ? restNight.map(ev => cardHtmlUsOpen(ev, 'night')).join('') : '<div class="no-results" style="padding:16px 0;">No night sessions.</div>'}</div>
-      </div>
-    </div>`;
-  }
+  // Group the rest by category (venue) — e.g. "Arthur Ashe", "Louis
+  // Armstrong", "Grandstand" — in the order each first appears, then show
+  // that category's Day/Night sessions side by side, aligned by date.
+  const categoryOrder = [];
+  const byCategory = {};
+  rest.forEach(ev => {
+    const cat = (ev.venue && ev.venue.trim()) ? ev.venue.trim() : 'Other';
+    if(!byCategory[cat]){ byCategory[cat] = []; categoryOrder.push(cat); }
+    byCategory[cat].push(ev);
+  });
+
+  categoryOrder.forEach(cat => {
+    html += `<div class="day-heading">${escapeHtml(cat)}</div>${dnRowsHtml(byCategory[cat])}`;
+  });
 
   listRoot.innerHTML = html;
 }
@@ -1906,8 +1792,7 @@ fileInput.addEventListener('change', e => {
 });
 
 clearBtn.addEventListener('click', () => {
-  const sheet = sheets.find(s => s.id === activeSheetId);
-  if(confirm(`Clear all events on "${sheet ? sheet.name : 'this sheet'}"?`)) clearActiveSheetEvents();
+  if(confirm(`Clear all events on "${activeSheetName}"?`)) clearActiveSheetEvents();
 });
 
 searchInput.addEventListener('input', render);
@@ -1988,7 +1873,7 @@ listRoot.addEventListener('click', async e => {
     openNotesKey = (openNotesKey === key) ? null : key;
     render();
     if(openNotesKey === key){
-      const ta = listRoot.querySelector(`.ticket[data-key="${CSS.escape(key)}"] .notes-textarea`);
+      const ta = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] .notes-textarea`);
       if(ta) ta.focus();
     }
     return;
@@ -2100,9 +1985,17 @@ document.addEventListener('drop', e => {
 
 window.addEventListener('beforeunload', () => { saveNotesNow(); });
 
-loadColumnCount();
-loadSheets();
-loadSyncSettings();
+async function initApp(){
+  applyColumnCount();
+  if(DEFAULT_SYNC_URL){
+    syncUrl = DEFAULT_SYNC_URL;
+    syncUrlInput.value = syncUrl;
+  }
+  updateSyncButtonState();
+  await loadAllFromRemote();
+  if(syncUrl) startSyncPolling();
+}
+initApp();
 </script>
 </body>
 </html>
