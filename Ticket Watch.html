@@ -227,8 +227,15 @@
     font-family:'Bebas Neue',sans-serif;
     font-size:22px;letter-spacing:.02em;
     color:var(--text);
-    padding:10px 0 6px;
+    padding:18px 0 6px;
+    margin-top:14px;
+    border-top:1px solid var(--hairline);
     display:flex;align-items:center;gap:10px;
+  }
+  .day-heading:first-child{
+    margin-top:0;
+    padding-top:10px;
+    border-top:none;
   }
   .day-heading .tag-today{
     font-family:'IBM Plex Mono',monospace;
@@ -243,7 +250,7 @@
   .day-heading.collapsible-heading.collapsed .collapse-caret{transform:rotate(-90deg);}
   .day-heading.collapsible-heading.collapsed + .day-grid{display:none;}
   .day-heading.collapsible-heading.collapsed{padding-bottom:10px;margin-bottom:2px;border-bottom:1px dashed var(--hairline);}
-  .pinned-grid{margin-bottom:26px;padding-bottom:22px;border-bottom:1px solid var(--hairline);}
+  .pinned-grid{margin-bottom:18px;}
 
   .ticket{
     position:relative;
@@ -261,9 +268,9 @@
   .ticket.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
   .ticket.kb-selected, .shift-block.kb-selected{
-    outline:2px solid var(--amber);outline-offset:-1px;
+    outline:2px solid var(--teal);outline-offset:-1px;
   }
-  .dn-merged:has(.shift-block.kb-selected){outline:2px solid var(--amber);outline-offset:-1px;border-radius:10px;}
+  .dn-merged:has(.shift-block.kb-selected){outline:2px solid var(--teal);outline-offset:-1px;border-radius:10px;}
   .new-badge{
     display:inline-flex;align-items:center;
     font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.06em;
@@ -337,6 +344,8 @@
   .icon-btn.delete-btn:hover{color:var(--coral);border-color:var(--coral);}
   .ticket-toolbar{justify-content:space-between;}
   .toolbar-icons-right{display:flex;gap:2px;}
+  .ticket-body{border-top:1px solid var(--hairline);}
+  .ticket-body:first-child{border-top:none;}
   .rating-row{display:flex;gap:4px;margin:6px 0 12px;}
   .rating-flame{
     width:28px;height:28px;display:flex;align-items:center;justify-content:center;
@@ -369,10 +378,6 @@
     font-family:'IBM Plex Mono',monospace;
     font-size:13.5px;font-weight:600;color:var(--amber);
     letter-spacing:.02em;
-  }
-  .ev-date{
-    font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:.02em;line-height:1.15;
-    color:var(--text);
   }
   .ev-sub{font-size:13.5px;color:var(--text);opacity:.78;line-height:1.35;margin-top:3px;}
   .tag-today{
@@ -704,7 +709,8 @@
           <p class="notes-label">Keyboard shortcuts</p>
           <div class="shortcuts-list">
             <div><kbd>/</kbd> Focus search</div>
-            <div><kbd>j</kbd> <kbd>k</kbd> or <kbd>↓</kbd> <kbd>↑</kbd> Move between cards</div>
+            <div><kbd>j</kbd> <kbd>k</kbd> or <kbd>↓</kbd> <kbd>↑</kbd> Move down / up a row</div>
+            <div><kbd>←</kbd> <kbd>→</kbd> Move to previous / next card</div>
             <div><kbd>1</kbd>–<kbd>5</kbd> Rate selected card</div>
             <div><kbd>0</kbd> Clear rating</div>
             <div><kbd>p</kbd> Pin / unpin</div>
@@ -1567,10 +1573,10 @@ function refreshNavigation(){
   navigableKeys = Array.from(listRoot.querySelectorAll('.ticket[data-key], .shift-block[data-key]')).map(el => el.dataset.key);
   if(selectedKey && navigableKeys.includes(selectedKey)){
     selectedIndex = navigableKeys.indexOf(selectedKey);
-  } else if(navigableKeys.length){
-    selectedIndex = Math.min(selectedIndex < 0 ? 0 : selectedIndex, navigableKeys.length - 1);
-    selectedKey = navigableKeys[selectedIndex];
   } else {
+    // Don't default to card 0 — that would highlight something on every
+    // render even though the person never touched the keyboard, which
+    // looked like a random unexplained outline unrelated to pinning.
     selectedIndex = -1;
     selectedKey = null;
   }
@@ -1595,6 +1601,56 @@ function selectByIndex(idx, scroll = true){
   }
 }
 
+// True directional movement using actual on-screen position rather than
+// DOM-order index math. Index math breaks down here because the page is
+// several independent CSS grids stitched together (one per section) —
+// "down" from the last row of one section, which might not even be full,
+// needs to land in the right column of the NEXT section's first row, and
+// simple index+columnCount arithmetic has no way to know where each grid
+// actually broke to a new row. Reading screen position sidesteps that
+// entirely: down/up wants the closest card whose center is directly
+// below/above the current one, in the nearest row in that direction.
+function selectByDirection(direction){
+  if(!navigableKeys.length) return;
+  if(!selectedKey){ selectByIndex(0); return; }
+
+  const currentIdx = navigableKeys.indexOf(selectedKey);
+  if(direction === 'right'){ selectByIndex(currentIdx + 1); return; }
+  if(direction === 'left'){ selectByIndex(currentIdx - 1); return; }
+
+  const currentEl = listRoot.querySelector(`[data-key="${CSS.escape(selectedKey)}"]`);
+  if(!currentEl){ selectByIndex(0); return; }
+  const curRect = currentEl.getBoundingClientRect();
+  const curCenterX = curRect.left + curRect.width / 2;
+  const curCenterY = curRect.top + curRect.height / 2;
+
+  let bestKey = null, bestScore = Infinity;
+  navigableKeys.forEach(key => {
+    if(key === selectedKey) return;
+    const el = listRoot.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if(!el || el.offsetParent === null) return; // skip hidden (collapsed section) cards
+    const r = el.getBoundingClientRect();
+    const centerX = r.left + r.width / 2;
+    const centerY = r.top + r.height / 2;
+
+    if(direction === 'down' && centerY <= curCenterY + 5) return;
+    if(direction === 'up' && centerY >= curCenterY - 5) return;
+
+    // Weight vertical distance heavily so the nearest row always wins;
+    // horizontal distance only breaks ties within that row.
+    const score = Math.abs(centerY - curCenterY) * 1000 + Math.abs(centerX - curCenterX);
+    if(score < bestScore){ bestScore = score; bestKey = key; }
+  });
+
+  if(bestKey){
+    selectedKey = bestKey;
+    selectedIndex = navigableKeys.indexOf(bestKey);
+    highlightSelected();
+    const el = listRoot.querySelector(`[data-key="${CSS.escape(bestKey)}"]`);
+    if(el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
 function selectedEvent(){
   if(!selectedKey) return null;
   return allEvents.find(ev => eventKey(ev) === selectedKey) || null;
@@ -1602,17 +1658,17 @@ function selectedEvent(){
 
 // Global shortcuts — all inert while typing in a text field, except
 // Escape (which blurs/closes things) so normal typing is never hijacked.
-//   /            focus search
-//   j / ↓        select next card
-//   k / ↑        select previous card
-//   1-5          rate the selected card (same value again clears to 0)
-//   0            clear the selected card's rating
-//   p            pin/unpin the selected card
-//   n            open/close notes on the selected card
-//   Enter        open the selected card's primary ticket link
-//   c            copy the selected card's primary ticket link
-//   Delete / x   delete the selected card (asks for confirmation)
-//   Escape       close whatever's open / blur the focused field
+//   /              focus search
+//   j/k, ↓/↑       move down/up to the nearest card in that direction
+//   ←/→            move to the previous/next card in reading order
+//   1-5            rate the selected card (same value again clears to 0)
+//   0              clear the selected card's rating
+//   p              pin/unpin the selected card
+//   n              open/close notes on the selected card
+//   Enter          open the selected card's primary ticket link
+//   c              copy the selected card's primary ticket link
+//   Delete / x     delete the selected card (asks for confirmation)
+//   Escape         close whatever's open / blur the focused field
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   const isTyping = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
@@ -1643,8 +1699,10 @@ document.addEventListener('keydown', e => {
 
   if(isTyping) return; // never hijack normal typing elsewhere
 
-  if(e.key === 'j' || e.key === 'ArrowDown'){ e.preventDefault(); selectByIndex(selectedIndex + 1); return; }
-  if(e.key === 'k' || e.key === 'ArrowUp'){ e.preventDefault(); selectByIndex(selectedIndex - 1); return; }
+  if(e.key === 'j' || e.key === 'ArrowDown'){ e.preventDefault(); selectByDirection('down'); return; }
+  if(e.key === 'k' || e.key === 'ArrowUp'){ e.preventDefault(); selectByDirection('up'); return; }
+  if(e.key === 'ArrowRight'){ e.preventDefault(); selectByDirection('right'); return; }
+  if(e.key === 'ArrowLeft'){ e.preventDefault(); selectByDirection('left'); return; }
 
   if(!selectedKey) return;
 
@@ -2062,33 +2120,35 @@ function cardHtmlStandard(ev){
 
   return `
     <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
-      <div class="ticket-toolbar">
-        ${ratingControlHtml(key, ann.rating)}
-        <div class="toolbar-icons-right">
-          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
-          <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
-          </button>
-          <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-          </button>
-          <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-          </button>
+      ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : ''}
+      <div class="ticket-body">
+        <div class="ticket-toolbar">
+          ${ratingControlHtml(key, ann.rating)}
+          <div class="toolbar-icons-right">
+            ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
+            <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+            </button>
+            <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            </button>
+            <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
         </div>
+        <div class="ticket-main">
+          <div class="ticket-info">
+            <div class="ev-name">${escapeHtml(ev.name)}</div>
+            <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+          </div>
+          <div class="perf"></div>
+          <div class="ticket-actions">
+            ${buttons || '<span class="no-links">No ticket links yet</span>'}
+          </div>
+        </div>
+        ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
       </div>
-      <div class="ticket-main">
-        <div class="ticket-info">
-          ${dateHeadline ? `<div class="ev-date">${escapeHtml(dateHeadline)}</div>` : ''}
-          <div class="ev-name">${escapeHtml(ev.name)}</div>
-          <div class="ev-venue">${escapeHtml(ev.venue)}</div>
-        </div>
-        <div class="perf"></div>
-        <div class="ticket-actions">
-          ${buttons || '<span class="no-links">No ticket links yet</span>'}
-        </div>
-      </div>
-      ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
     </div>`;
 }
 
