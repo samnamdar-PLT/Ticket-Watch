@@ -286,6 +286,11 @@
     font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.02em;
     color:var(--text);padding:12px 14px 6px;
   }
+  .ticket-header-row{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+  }
+  .ticket-header-row .dn-merged-date{padding:10px 0 10px 14px;flex:1 1 auto;min-width:0;}
+  .ticket-header-row .ticket-toolbar{padding:6px 6px 6px 0;flex:0 0 auto;}
   .shift-block{
     border-top:1px solid var(--hairline);
     padding:10px 14px 12px;
@@ -2120,8 +2125,8 @@ function cardHtmlStandard(ev){
 
   return `
     <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
-      ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : ''}
-      <div class="ticket-body">
+      <div class="ticket-header-row">
+        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
         <div class="ticket-toolbar">
           ${ratingControlHtml(key, ann.rating)}
           <div class="toolbar-icons-right">
@@ -2137,6 +2142,8 @@ function cardHtmlStandard(ev){
             </button>
           </div>
         </div>
+      </div>
+      <div class="ticket-body">
         <div class="ticket-main">
           <div class="ticket-info">
             <div class="ev-name">${escapeHtml(ev.name)}</div>
