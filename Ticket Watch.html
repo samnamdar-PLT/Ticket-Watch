@@ -609,13 +609,32 @@
     cursor:pointer;transition:border-color .15s ease, color .15s ease;
   }
   .price-chip:hover{border-color:var(--teal);color:var(--teal);}
-  .panel-delete-btn{
-    display:block;width:100%;margin-top:12px;
+  .history-toggle{
+    display:block;margin:6px 0 0;padding:0;
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;
+    background:none;border:none;color:var(--muted);cursor:pointer;
+    text-align:left;
+  }
+  .history-toggle:hover{color:var(--teal);}
+  .history-list{
+    margin-top:6px;padding:8px 10px;border-radius:6px;
+    background:var(--bg);border:1px solid var(--hairline);
+    max-height:160px;overflow-y:auto;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .history-entry{border-left:2px solid var(--hairline);padding-left:8px;}
+  .history-date{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);margin-bottom:2px;}
+  .history-text{font-size:12px;color:var(--text);opacity:.85;white-space:pre-wrap;}
+  .history-empty{font-style:italic;opacity:.6;}
+  .panel-action-row{display:flex;gap:8px;margin-top:12px;}
+  .panel-archive-btn, .panel-delete-btn{
+    flex:1 1 0;
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
     padding:7px 10px;border-radius:6px;text-align:center;
     border:1px solid var(--hairline);background:transparent;color:var(--muted);
     cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease;
   }
+  .panel-archive-btn:hover{border-color:var(--amber);color:var(--amber);background:rgba(242,193,78,.06);}
   .panel-delete-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
 
   /* ---------- Cloud sync ---------- */
@@ -679,13 +698,13 @@
     font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.02em;
     margin:0 0 14px;color:var(--text);
   }
-  .modal-box input[type=text]{
+  .modal-box input[type=text], .modal-box input[type=password]{
     width:100%;
     background:var(--bg);border:1px solid var(--hairline);border-radius:8px;
     color:var(--text);font-family:'Inter',sans-serif;font-size:14px;
     padding:10px 12px;outline:none;margin:6px 0 16px;
   }
-  .modal-box input[type=text]:focus{border-color:var(--amber);}
+  .modal-box input[type=text]:focus, .modal-box input[type=password]:focus{border-color:var(--amber);}
   .modal-checkbox{
     display:flex;align-items:flex-start;gap:9px;
     font-family:'Inter',sans-serif;font-size:13px;color:var(--text);
@@ -694,6 +713,10 @@
   .modal-checkbox input{margin-top:3px;flex:0 0 auto;accent-color:var(--amber);width:16px;height:16px;cursor:pointer;}
   .modal-checkbox-hint{color:var(--muted);font-size:12px;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
+  #deletePasscodeInput{
+    font-size:22px;letter-spacing:10px;text-align:center;font-family:'IBM Plex Mono',monospace;
+  }
+  .passcode-error{color:var(--coral);font-size:12px;margin:-10px 0 14px;}
 
   /* ---------- Empty state ---------- */
   .empty{
@@ -768,6 +791,7 @@
       </div>
       <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">🔥 Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
+      <button class="filter-btn" id="archiveFilterBtn" title="Show archived events instead of hiding them">📦 Archive</button>
       <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
       <button class="btn ghost" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
       <button class="btn ghost" id="selectModeBtn" title="Select cards to delete, like picking photos to delete on a phone">🗑 Select</button>
@@ -843,6 +867,19 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="deletePasscodeModal" style="display:none;">
+  <div class="modal-box">
+    <h3 class="modal-title">Confirm Delete</h3>
+    <p class="notes-label" id="deletePasscodeLabel">Enter the 4-digit passcode to delete</p>
+    <input type="password" id="deletePasscodeInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" autocomplete="off">
+    <p class="passcode-error" id="deletePasscodeError" style="display:none;">Incorrect passcode.</p>
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelDeletePasscodeBtn" type="button">Cancel</button>
+      <button class="btn danger" id="confirmDeletePasscodeBtn" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const $ = sel => document.querySelector(sel);
 const fileInput = $('#fileInput');
@@ -868,6 +905,7 @@ const syncDisconnectBtn = $('#syncDisconnectBtn');
 const syncStatus = $('#syncStatus');
 const hotFilterBtn = $('#hotFilterBtn');
 const newFilterBtn = $('#newFilterBtn');
+const archiveFilterBtn = $('#archiveFilterBtn');
 const undoBtn = $('#undoBtn');
 const redoBtn = $('#redoBtn');
 const expandAllBtn = $('#expandAllBtn');
@@ -884,8 +922,50 @@ const newSheetNameInput = $('#newSheetNameInput');
 const newSheetUsOpenCheckbox = $('#newSheetUsOpenCheckbox');
 const cancelAddSheetBtn = $('#cancelAddSheetBtn');
 const confirmAddSheetBtn = $('#confirmAddSheetBtn');
+const deletePasscodeModal = $('#deletePasscodeModal');
+const deletePasscodeInput = $('#deletePasscodeInput');
+const deletePasscodeError = $('#deletePasscodeError');
+const cancelDeletePasscodeBtn = $('#cancelDeletePasscodeBtn');
+const confirmDeletePasscodeBtn = $('#confirmDeletePasscodeBtn');
 const clearPastBtn = $('#clearPastBtn');
 const themeToggleBtn = $('#themeToggleBtn');
+
+// ---------- Delete passcode gate ----------
+// A deliberate 4-digit PIN before any card gets deleted — this is a
+// lightweight deterrent for a shared link, not real security (anyone
+// could read it from the page source), but that matches the actual goal:
+// stop a casual visitor from deleting things by mistake or on a whim.
+// Notes are excluded on purpose — those change constantly and should
+// stay frictionless.
+const DELETE_PASSCODE = '2121';
+let deletePasscodeResolve = null;
+
+function requestDeletePasscode(){
+  return new Promise(resolve => {
+    deletePasscodeResolve = resolve;
+    deletePasscodeInput.value = '';
+    deletePasscodeError.style.display = 'none';
+    deletePasscodeModal.style.display = 'flex';
+    deletePasscodeInput.focus();
+  });
+}
+function closeDeletePasscodeModal(result){
+  deletePasscodeModal.style.display = 'none';
+  if(deletePasscodeResolve){ deletePasscodeResolve(result); deletePasscodeResolve = null; }
+}
+function submitDeletePasscode(){
+  if(deletePasscodeInput.value === DELETE_PASSCODE){
+    closeDeletePasscodeModal(true);
+  } else {
+    deletePasscodeError.style.display = 'block';
+    deletePasscodeInput.value = '';
+    deletePasscodeInput.focus();
+  }
+}
+confirmDeletePasscodeBtn.addEventListener('click', submitDeletePasscode);
+cancelDeletePasscodeBtn.addEventListener('click', () => closeDeletePasscodeModal(false));
+deletePasscodeModal.addEventListener('click', e => { if(e.target === deletePasscodeModal) closeDeletePasscodeModal(false); });
+deletePasscodeInput.addEventListener('keydown', e => { if(e.key === 'Enter') submitDeletePasscode(); });
 
 let allEvents = [];
 let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
@@ -893,12 +973,38 @@ let pendingEmptySheets = []; // sheets created locally that have no pushed rows 
 let draggedSheetName = null; // tracks the tab currently being dragged for reordering
 let activeSheetName = null;
 let sortMode = 'upload'; // 'date' | 'upload' — standard-mode sheets only; US Open always groups by date
-let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections} — used on every sheet, any mode
+let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections, archived, noteHistory} — used on every sheet, any mode
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
+let noteSnapshotOnOpen = null; // ann.note captured when the panel opened, so closing can tell if it actually changed
+let historyExpandedKeys = new Set(); // keys whose note-history list is currently expanded
+let archiveOnly = false; // filter: show only archived events instead of hiding them
 let hotOnly = false; // filter: only show events with a rating > 0
 let newOnly = false; // filter: only show events flagged New by the last upload
 let collapsedSections = new Set(); // heading text -> collapsed. Click a heading to toggle.
 let selectMode = false; // toggled by the Delete button — turns cards into checkboxes instead of their normal click behavior
+
+// Every path that opens/closes the notes panel (click, keyboard 'n',
+// clicking outside, Escape, switching to a different card) routes through
+// these two so note-history recording happens consistently no matter how
+// the panel got closed — a change only gets logged if the note text
+// actually differs from what it was when the panel opened.
+function openNotesPanel(key){
+  noteSnapshotOnOpen = getAnnotation(key).note;
+  openNotesKey = key;
+}
+function closeNotesPanel(){
+  if(openNotesKey){
+    const ann = getAnnotation(openNotesKey);
+    if(noteSnapshotOnOpen !== null && noteSnapshotOnOpen !== ann.note){
+      ann.noteHistory = ann.noteHistory || [];
+      ann.noteHistory.push({ text: noteSnapshotOnOpen, changedAt: new Date().toISOString() });
+      if(ann.noteHistory.length > 20) ann.noteHistory = ann.noteHistory.slice(-20); // keep it bounded
+      saveNotesSoon();
+    }
+  }
+  openNotesKey = null;
+  noteSnapshotOnOpen = null;
+}
 let selectedKeys = new Set();
 let lastSelectedKey = null; // anchor for shift-click range selection
 let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
@@ -971,6 +1077,12 @@ newFilterBtn.addEventListener('click', () => {
   render();
 });
 
+archiveFilterBtn.addEventListener('click', () => {
+  archiveOnly = !archiveOnly;
+  archiveFilterBtn.classList.toggle('active', archiveOnly);
+  render();
+});
+
 clearPastBtn.addEventListener('click', () => { clearPastEvents(); });
 
 undoBtn.addEventListener('click', () => { undo(); });
@@ -1039,7 +1151,8 @@ function toggleCardSelection(key, shiftKey){
 
 confirmDeleteBtn.addEventListener('click', async () => {
   if(!selectedKeys.size) return;
-  if(!confirm(`Delete ${selectedKeys.size} selected event${selectedKeys.size === 1 ? '' : 's'}? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  const ok = await requestDeletePasscode();
+  if(!ok) return;
   pushUndo();
   allEvents = allEvents.filter(ev => !selectedKeys.has(eventKey(ev)));
   selectedKeys.forEach(k => delete annotations[k]);
@@ -1085,7 +1198,7 @@ document.addEventListener('click', e => {
   const path = e.composedPath();
   const clickedInsideOpenCard = path.some(el => el.dataset && el.dataset.key === openNotesKey);
   if(!clickedInsideOpenCard){
-    openNotesKey = null;
+    closeNotesPanel();
     render();
   }
 });
@@ -1208,7 +1321,7 @@ function syncActiveSheetFromCache(){
   annotations = {};
   rows.forEach((ev, idx) => {
     const key = eventKey(allEvents[idx]);
-    annotations[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew };
+    annotations[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew, archived: !!ev.archived, noteHistory: ev.noteHistory || [] };
   });
   metaLine.textContent = allEvents.length ? `${allEvents.length} events · live from Google Sheets` : '';
 }
@@ -1312,7 +1425,7 @@ async function pushActiveSheetToRemote(){
   const mode = activeSheetMode();
   const payloadEvents = allEvents.map(ev => {
     const ann = getAnnotation(eventKey(ev));
-    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew };
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [] };
   });
   pendingPushCount++;
   try{
@@ -1653,11 +1766,11 @@ async function redo(){
   await pushActiveSheetToRemote();
 }
 
-// Reads/creates the {note, rating, pinned, sections, isNew} record for
-// one event. Used on every sheet, regardless of mode.
+// Reads/creates the {note, rating, pinned, sections, isNew, archived,
+// noteHistory} record for one event. Used on every sheet, regardless of mode.
 function getAnnotation(key){
   if(!annotations[key]){
-    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false };
+    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false, archived: false, noteHistory: [] };
   }
   return annotations[key];
 }
@@ -1710,11 +1823,12 @@ async function clearActiveSheetEvents(){
 async function deleteSingleEvent(key){
   const ev = allEvents.find(e => eventKey(e) === key);
   if(!ev) return;
-  if(!confirm(`Delete "${ev.name}"? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  const ok = await requestDeletePasscode();
+  if(!ok) return;
   pushUndo();
   allEvents = allEvents.filter(e => eventKey(e) !== key);
   delete annotations[key];
-  if(openNotesKey === key) openNotesKey = null;
+  if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
   render();
   await pushActiveSheetToRemote();
 }
@@ -1865,7 +1979,7 @@ document.addEventListener('keydown', e => {
 
   if(e.key === 'Escape'){
     if(isTyping) e.target.blur();
-    if(openNotesKey){ openNotesKey = null; render(); }
+    if(openNotesKey){ closeNotesPanel(); render(); }
     syncPopover.classList.remove('open');
     helpPopover.classList.remove('open');
     if(addSheetModal.style.display !== 'none') closeAddSheetModal();
@@ -1923,7 +2037,7 @@ document.addEventListener('keydown', e => {
   if(e.key === 'n'){
     const opening = openNotesKey !== selectedKey;
     if(opening) pushUndo();
-    openNotesKey = opening ? selectedKey : null;
+    if(opening) openNotesPanel(selectedKey); else closeNotesPanel();
     render();
     if(openNotesKey === selectedKey){
       const ta = listRoot.querySelector(`[data-key="${CSS.escape(selectedKey)}"] .notes-textarea`);
@@ -1988,10 +2102,13 @@ function createSheetFromModal(){
   closeAddSheetModal();
   activeSheetName = trimmed;
   openNotesKey = null;
+  noteSnapshotOnOpen = null;
   hotOnly = false;
   hotFilterBtn.classList.remove('active');
   newOnly = false;
   newFilterBtn.classList.remove('active');
+  archiveOnly = false;
+  archiveFilterBtn.classList.remove('active');
   collapsedSections = new Set();
   savedCollapsedSections = null;
   searchModeActive = false;
@@ -2017,10 +2134,13 @@ function addSheet(){
 function setActiveSheet(name){
   activeSheetName = name;
   openNotesKey = null;
+  noteSnapshotOnOpen = null;
   hotOnly = false;
   hotFilterBtn.classList.remove('active');
   newOnly = false;
   newFilterBtn.classList.remove('active');
+  archiveOnly = false;
+  archiveFilterBtn.classList.remove('active');
   collapsedSections = new Set();
   savedCollapsedSections = null;
   searchModeActive = false;
@@ -2266,6 +2386,8 @@ function renderStandard(){
   let filtered = allEvents.filter(ev => {
     if(!matchesSearch(ev, query)) return false;
     const ann = getAnnotation(eventKey(ev));
+    if(archiveOnly) return !!ann.archived; // Archive view shows ONLY archived, ignoring other filters below
+    if(ann.archived) return false; // archived events stay out of the normal view otherwise
     if(hotOnly && !ann.rating) return false;
     if(newOnly && !ann.isNew) return false;
     return true;
@@ -2485,6 +2607,26 @@ function priceRowHtml(key, row){
     </div>`;
 }
 
+// Renders a "Show history (N)" toggle below the notes textarea, and the
+// timeline itself when expanded — each entry is what the note read
+// BEFORE it changed, with the timestamp of that change, newest first.
+function noteHistoryHtml(key, ann){
+  if(!ann.noteHistory || !ann.noteHistory.length) return '';
+  const expanded = historyExpandedKeys.has(key);
+  let list = '';
+  if(expanded){
+    list = [...ann.noteHistory].reverse().map(h => {
+      const d = new Date(h.changedAt);
+      const when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+      const text = (h.text || '').trim() ? escapeHtml(h.text) : '<span class="history-empty">(empty)</span>';
+      return `<div class="history-entry"><div class="history-date">${escapeHtml(when)}</div><div class="history-text">${text}</div></div>`;
+    }).join('');
+  }
+  return `
+    <button type="button" class="history-toggle" data-action="toggle-history" data-key="${escapeHtml(key)}">${expanded ? '▾' : '▸'} Show history (${ann.noteHistory.length})</button>
+    ${expanded ? `<div class="history-list">${list}</div>` : ''}`;
+}
+
 function notesPanelHtml(key, ann){
   const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
   const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
@@ -2495,10 +2637,14 @@ function notesPanelHtml(key, ann){
       ${ratingRowHtml(key, ann.rating)}
       <p class="notes-label">Notes</p>
       <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
+      ${noteHistoryHtml(key, ann)}
       <p class="notes-label">Sections &amp; prices</p>
       <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
       <div class="price-chips">${chips}</div>
-      <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete this event</button>
+      <div class="panel-action-row">
+        <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
+        <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete</button>
+      </div>
     </div>`;
 }
 
@@ -2601,6 +2747,8 @@ function renderUsOpen(){
   let filtered = allEvents.filter(ev => {
     if(!matchesSearch(ev, query)) return false;
     const ann = getAnnotation(eventKey(ev));
+    if(archiveOnly) return !!ann.archived;
+    if(ann.archived) return false;
     if(hotOnly && !ann.rating) return false;
     if(newOnly && !ann.isNew) return false;
     return true;
@@ -2795,6 +2943,28 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Archive/unarchive — no passcode needed, unlike delete, since it's
+  // fully reversible and keeps the event's notes intact either way.
+  const archiveBtn = e.target.closest('[data-action="archive"]');
+  if(archiveBtn){
+    pushUndo();
+    const ann = getAnnotation(archiveBtn.dataset.key);
+    ann.archived = !ann.archived;
+    saveNotesSoon();
+    render();
+    return;
+  }
+
+  // Expand/collapse the note-history timeline inside the open panel.
+  const historyToggle = e.target.closest('[data-action="toggle-history"]');
+  if(historyToggle){
+    const key = historyToggle.dataset.key;
+    if(historyExpandedKeys.has(key)) historyExpandedKeys.delete(key);
+    else historyExpandedKeys.add(key);
+    render();
+    return;
+  }
+
   // Dismiss the NEW badge without waiting for the next upload to clear it.
   const dismissNewBtn = e.target.closest('[data-action="dismiss-new"]');
   if(dismissNewBtn){
@@ -2815,7 +2985,7 @@ listRoot.addEventListener('click', async e => {
     const key = notesBtn.dataset.key;
     const opening = openNotesKey !== key;
     if(opening) pushUndo();
-    openNotesKey = opening ? key : null;
+    if(opening) openNotesPanel(key); else closeNotesPanel();
     render();
     if(openNotesKey === key){
       const ta = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] .notes-textarea`);
