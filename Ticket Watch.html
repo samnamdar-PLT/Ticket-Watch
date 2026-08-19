@@ -160,6 +160,8 @@
   }
   .sheet-tab:hover{color:var(--text);background:rgba(255,255,255,.04);}
   .sheet-tab.active{color:var(--text);border-bottom-color:var(--amber);}
+  .sheet-tab.dragging{opacity:.4;}
+  .sheet-tab.drag-over{background:rgba(255,255,255,.08);border-left:2px solid var(--teal);}
   .tab-close{
     opacity:0;font-size:14px;line-height:1;color:var(--muted);
     transition:opacity .15s ease, color .15s ease;
@@ -225,7 +227,7 @@
     overflow-y:auto;
     -webkit-overflow-scrolling:touch;
   }
-  .main-inner{max-width:1600px;margin:0 auto;padding:22px 24px 80px;}
+  .main-inner{max-width:2400px;margin:0 auto;padding:22px 24px 80px;}
 
   .day-grid{
     display:grid;
@@ -514,6 +516,7 @@
     min-height:74px;
     box-sizing:border-box;
   }
+  .shift-block .notes-preview{min-height:0;padding:6px 14px 8px;}
   .notes-preview.no-content{border-top-color:var(--hairline);opacity:.4;}
   .note-preview-text{
     font-size:12px;color:var(--muted);font-style:italic;
@@ -586,6 +589,14 @@
     cursor:pointer;transition:border-color .15s ease, color .15s ease;
   }
   .price-chip:hover{border-color:var(--teal);color:var(--teal);}
+  .panel-delete-btn{
+    display:block;width:100%;margin-top:12px;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:7px 10px;border-radius:6px;text-align:center;
+    border:1px solid var(--hairline);background:transparent;color:var(--muted);
+    cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .panel-delete-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
 
   /* ---------- Cloud sync ---------- */
   .sync-wrap{position:relative;flex:0 0 auto;}
@@ -855,6 +866,7 @@ const themeToggleBtn = $('#themeToggleBtn');
 let allEvents = [];
 let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
 let pendingEmptySheets = []; // sheets created locally that have no pushed rows yet, so a poll doesn't make them vanish
+let draggedSheetName = null; // tracks the tab currently being dragged for reordering
 let activeSheetName = null;
 let sortMode = 'upload'; // 'date' | 'upload' — standard-mode sheets only; US Open always groups by date
 let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections} — used on every sheet, any mode
@@ -1257,6 +1269,24 @@ async function pushSheetDelete(name){
     if(data && Array.isArray(data.events)) remoteCache = data.events;
     if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
   }catch(e){ setSyncStatus('Delete may not have saved — check your connection.', 'error'); }
+  finally{ pendingPushCount = Math.max(0, pendingPushCount - 1); }
+}
+
+// Pushes the drag-and-drop reordered tab list to the real spreadsheet, so
+// physically moving tabs there matches what you just did by dragging here.
+async function pushSheetOrder(){
+  if(!syncUrl) return;
+  pendingPushCount++;
+  try{
+    const res = await fetch(syncUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'reorderSheets', order: sheets.map(s => s.name) })
+    });
+    const data = await res.json();
+    if(data && Array.isArray(data.events)) remoteCache = data.events;
+    if(data && Array.isArray(data.sheets)) remoteSheetsList = data.sheets;
+  }catch(e){ setSyncStatus('Reorder may not have saved — check your connection.', 'error'); }
   finally{ pendingPushCount = Math.max(0, pendingPushCount - 1); }
 }
 
@@ -1950,7 +1980,7 @@ async function deleteSheet(name){
 
 function renderTabs(){
   sheetTabs.innerHTML = sheets.map(s => `
-    <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Double-click to rename">
+    <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Drag to reorder — double-click to rename" draggable="true">
       <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
       <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
@@ -1965,6 +1995,39 @@ function renderTabs(){
     btn.addEventListener('dblclick', e => {
       if(e.target.classList.contains('tab-close')) return;
       renameSheet(btn.dataset.name);
+    });
+
+    // Drag-and-drop reordering, matching the tab bar at the bottom of an
+    // actual Google Sheet — the new order is pushed to the real spreadsheet
+    // too, since sheet order in the app always mirrors real tab order.
+    btn.addEventListener('dragstart', e => {
+      draggedSheetName = btn.dataset.name;
+      btn.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    btn.addEventListener('dragend', () => {
+      btn.classList.remove('dragging');
+      sheetTabs.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+    btn.addEventListener('dragover', e => {
+      e.preventDefault();
+      if(btn.dataset.name === draggedSheetName) return;
+      btn.classList.add('drag-over');
+    });
+    btn.addEventListener('dragleave', () => btn.classList.remove('drag-over'));
+    btn.addEventListener('drop', e => {
+      e.preventDefault();
+      btn.classList.remove('drag-over');
+      const targetName = btn.dataset.name;
+      if(!draggedSheetName || draggedSheetName === targetName) return;
+      const fromIdx = sheets.findIndex(s => s.name === draggedSheetName);
+      const toIdx = sheets.findIndex(s => s.name === targetName);
+      if(fromIdx === -1 || toIdx === -1) return;
+      const [moved] = sheets.splice(fromIdx, 1);
+      sheets.splice(toIdx, 0, moved);
+      draggedSheetName = null;
+      renderTabs();
+      pushSheetOrder();
     });
   });
   sheetTabs.querySelectorAll('.tab-close').forEach(x => {
@@ -2185,6 +2248,12 @@ function cardHtmlStandard(ev){
   const key = eventKey(ev);
   const ann = getAnnotation(key);
   const isOpen = key === openNotesKey;
+  // At 7+ columns, cards get narrow enough that 4 toolbar icons wrap onto
+  // an awkward second line. Dropping the delete icon from the compact
+  // toolbar (it moves into the notes panel instead, or stays reachable
+  // via the Delete/x keyboard shortcut) is enough on its own to keep
+  // flame + pin + notes on one line without wrapping.
+  const isDense = columnCount >= 7;
 
   return `
     <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
@@ -2200,9 +2269,9 @@ function cardHtmlStandard(ev){
             <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
             </button>
-            <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
+            ${isDense ? '' : `<button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-            </button>
+            </button>`}
           </div>
         </div>
       </div>
@@ -2363,6 +2432,7 @@ function notesPanelHtml(key, ann){
       <p class="notes-label">Sections &amp; prices</p>
       <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
       <div class="price-chips">${chips}</div>
+      <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete this event</button>
     </div>`;
 }
 
@@ -2382,6 +2452,7 @@ function shiftBlockHtml(ev, shift){
   ].filter(Boolean).join('');
   const isOpen = key === openNotesKey;
   const shiftLabel = shift === 'day' ? '☀ Day' : '☾ Night';
+  const isDense = columnCount >= 7;
 
   return `
     <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
@@ -2396,9 +2467,9 @@ function shiftBlockHtml(ev, shift){
           <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
           </button>
-          <button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this session">
+          ${isDense ? '' : `<button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this session">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-          </button>
+          </button>`}
         </div>
       </div>
       <div class="shift-block-main">
