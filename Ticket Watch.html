@@ -57,6 +57,37 @@
     --pin:#a8790a;
     --rating:#c9531b;
   }
+
+  /* ---------- Card density scaling ----------
+     At high column counts, cards get too narrow for full-size text/controls
+     to fit without wrapping or growing taller — this scales font sizes,
+     control sizes, and min-widths down together (like zooming out) so
+     content still fits inside the same card height. Driven by
+     data-density, set from the column count in applyColumnCount(). */
+  :root, html[data-density="normal"]{
+    --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:20px;
+    --f-link:12px; --minw-info:160px; --minw-actions:190px;
+    --copybtn-w:52px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
+  }
+  html[data-density="compact"]{
+    --f-name:13.5px; --f-venue:12px; --f-time:11.5px; --f-date:16px;
+    --f-link:11px; --minw-info:100px; --minw-actions:110px;
+    --copybtn-w:30px; --icon-size:26px; --pad-card:6px 10px 8px; --f-chip:9.5px;
+  }
+  html[data-density="tiny"]{
+    --f-name:11.5px; --f-venue:10px; --f-time:9.5px; --f-date:12px;
+    --f-link:9.5px; --minw-info:64px; --minw-actions:64px;
+    --copybtn-w:20px; --icon-size:20px; --pad-card:4px 6px 5px; --f-chip:8.5px;
+  }
+  /* Toolbar icons alone need ~100px+ even at their smallest reasonable
+     size — fighting the date for space on one line left almost nothing
+     for the date text. Wrapping the toolbar to its own line trades a
+     little height for an actually-readable date. */
+  html[data-density="tiny"] .ticket-header-row{flex-wrap:wrap;row-gap:0;}
+  html[data-density="tiny"] .ticket-header-row .dn-merged-date{flex:1 1 100%;padding-bottom:2px;}
+  html[data-density="tiny"] .ticket-header-row .ticket-toolbar{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap;row-gap:2px;padding:0 6px 4px 14px;}
+  html[data-density="tiny"] .toolbar-icons-right{flex-wrap:wrap;row-gap:2px;}
+
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
   body{
@@ -287,13 +318,16 @@
   /* ---------- US Open merged Day+Night card ---------- */
   .dn-merged{padding-bottom:2px;}
   .dn-merged-date{
-    font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.02em;
+    font-family:'Bebas Neue',sans-serif;font-size:var(--f-date);letter-spacing:.02em;
     color:var(--text);padding:12px 14px 6px;
   }
   .ticket-header-row{
     display:flex;align-items:center;justify-content:space-between;gap:8px;
   }
-  .ticket-header-row .dn-merged-date{padding:10px 0 10px 14px;flex:1 1 auto;min-width:0;}
+  .ticket-header-row .dn-merged-date{
+    padding:10px 0 10px 14px;flex:1 1 auto;min-width:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
   .ticket-header-row .ticket-toolbar{padding:6px 6px 6px 0;flex:0 0 auto;}
   .shift-block{
     border-top:1px solid var(--hairline);
@@ -313,11 +347,11 @@
   .shift-block.shift-day .ev-time{color:var(--day-color);}
   .shift-block.shift-night .ev-time{color:var(--night-color);}
   .shift-block-icons{display:flex;gap:2px;}
-  .shift-block-icons .icon-btn{width:28px;height:28px;}
+  .shift-block-icons .icon-btn{width:calc(var(--icon-size) - 4px);height:calc(var(--icon-size) - 4px);}
   .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
-  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:175px;}
+  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:var(--minw-actions);}
   .shift-divider{height:0;}
   .filter-btn{
     display:flex;align-items:center;gap:6px;
@@ -336,7 +370,7 @@
   }
   .icon-btn{
     display:flex;align-items:center;justify-content:center;
-    width:32px;height:32px;
+    width:var(--icon-size);height:var(--icon-size);
     border-radius:6px;
     border:1px solid transparent;
     background:transparent;color:var(--muted);
@@ -367,28 +401,30 @@
   .ticket-main{display:flex;flex-wrap:wrap;}
 
   .ticket-info{
-    flex:1 1 160px;
-    min-width:160px;
-    padding:8px 16px 12px;
+    flex:1 1 var(--minw-info);
+    min-width:var(--minw-info);
+    padding:var(--pad-card);
     display:flex;
     flex-direction:column;
     gap:4px;
     justify-content:center;
   }
   .ev-name{
-    font-size:16px;font-weight:700;color:var(--teal);
+    font-size:var(--f-name);font-weight:700;color:var(--teal);
     line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .ev-venue{
-    font-size:14px;color:var(--text);opacity:.78;
+    font-size:var(--f-venue);color:var(--text);opacity:.78;
     line-height:1.35;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .ev-time{
     font-family:'IBM Plex Mono',monospace;
-    font-size:13.5px;font-weight:600;color:var(--amber);
+    font-size:var(--f-time);font-weight:600;color:var(--amber);
     letter-spacing:.02em;
   }
-  .ev-sub{font-size:13.5px;color:var(--text);opacity:.78;line-height:1.35;margin-top:3px;}
+  .ev-sub{font-size:var(--f-venue);color:var(--text);opacity:.78;line-height:1.35;margin-top:3px;}
   .tag-today{
     font-family:'IBM Plex Mono',monospace;
     font-size:10px;letter-spacing:.08em;text-transform:uppercase;
@@ -419,9 +455,9 @@
     display:flex;
     flex-direction:column;
     gap:4px;
-    padding:8px 10px 12px;
+    padding:var(--pad-card);
     justify-content:center;
-    min-width:190px;
+    min-width:var(--minw-actions);
   }
   .link-row{display:flex;gap:4px;}
   .link-btn{
@@ -430,13 +466,15 @@
     display:flex;align-items:center;justify-content:space-between;
     gap:5px;
     font-family:'Inter',sans-serif;
-    font-size:12px;font-weight:600;
+    font-size:var(--f-link);font-weight:600;
     text-decoration:none;
     padding:5px 7px;
     border-radius:6px;
     border:1px solid transparent;
     color:#141316;
     transition:filter .15s ease, transform .1s ease;
+    white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;
   }
   .link-btn:hover{filter:brightness(1.1);}
   .link-btn:active{transform:scale(.98);}
@@ -448,7 +486,7 @@
   .copy-btn{
     flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;
-    width:52px;
+    width:var(--copybtn-w);
     border-radius:6px;
     border:1px solid var(--hairline);
     background:var(--card-hover);
@@ -473,7 +511,7 @@
     border-top:1px solid var(--hairline);
     padding:8px 14px 10px;
     background:rgba(255,255,255,.012);
-    min-height:48px;
+    min-height:74px;
     box-sizing:border-box;
   }
   .notes-preview.no-content{border-top-color:var(--hairline);opacity:.4;}
@@ -500,12 +538,12 @@
   .price-preview-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .price-preview-chip{
     display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;flex:0 0 auto;
-    font-family:'Inter',sans-serif;font-size:11px;font-weight:700;line-height:1.25;
+    font-family:'Inter',sans-serif;font-size:var(--f-chip, 11px);font-weight:700;line-height:1.25;
     background:var(--price-tag-bg);border:1px solid var(--price-tag-border);border-radius:5px;
-    padding:3px 7px;color:var(--price-tag-text);
+    padding:2px 6px;color:var(--price-tag-text);
   }
-  .price-preview-chip b{color:#5a4a12;font-weight:700;font-size:9.5px;letter-spacing:.02em;text-transform:uppercase;opacity:.75;}
-  .price-preview-value{font-size:12px;}
+  .price-preview-chip b{color:#5a4a12;font-weight:700;font-size:calc(var(--f-chip, 11px) - 1.5px);letter-spacing:.02em;text-transform:uppercase;opacity:.75;}
+  .price-preview-value{font-size:calc(var(--f-chip, 11px) + 1px);}
   .price-preview-chip.more{
     background:transparent;color:var(--muted);border-style:dashed;border-color:var(--hairline);
   }
@@ -827,7 +865,7 @@ let collapsedSections = new Set(); // heading text -> collapsed. Click a heading
 let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
 let searchModeActive = false;
 let columnCount = 3;
-const MIN_COLS = 1, MAX_COLS = 6;
+const MIN_COLS = 1, MAX_COLS = 10;
 let remoteCache = []; // every raw row from the last successful fetch, across all sheets — this IS the data; nothing is cached beyond this in-memory copy
 
 function activeSheet(){
@@ -864,6 +902,11 @@ function applyColumnCount(){
   colCount.textContent = columnCount;
   colMinus.disabled = columnCount <= MIN_COLS;
   colPlus.disabled = columnCount >= MAX_COLS;
+  // At high column counts cards get narrow enough that full-size text and
+  // controls no longer fit without wrapping or growing taller — this
+  // scales everything down together (like zooming out) instead.
+  const density = columnCount >= 9 ? 'tiny' : columnCount >= 7 ? 'compact' : 'normal';
+  document.documentElement.setAttribute('data-density', density);
 }
 
 colMinus.addEventListener('click', () => {
