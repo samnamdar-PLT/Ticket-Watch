@@ -1075,6 +1075,17 @@ function rebuildSheetsFromCache(){
   sheets = rebuilt.length ? rebuilt : [{ name: 'Sheet 1', mode: 'standard' }];
 }
 
+// US Open is time-sensitive (sessions sell out, day/night matters day-to-
+// day) so it's what should be in front of you the moment the page opens —
+// picked by mode, not name, so renaming the sheet doesn't break this.
+// Falls back to the first sheet (matching actual tab order) if there's no
+// US Open sheet at all.
+function pickDefaultSheetName(){
+  const usOpen = sheets.find(s => s.mode === 'usopen');
+  if(usOpen) return usOpen.name;
+  return sheets.length ? sheets[0].name : null;
+}
+
 // Rebuilds allEvents/annotations for whichever sheet is active, from the
 // in-memory remoteCache — no fetch needed, it's already there. Notes,
 // rating, pin, and price sections all live in one annotations record per
@@ -1130,7 +1141,7 @@ async function loadAllFromRemote(){
   remoteCache = data.events;
   remoteSheetsList = Array.isArray(data.sheets) ? data.sheets : [];
   rebuildSheetsFromCache();
-  activeSheetName = sheets.length ? sheets[0].name : null;
+  activeSheetName = pickDefaultSheetName();
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
@@ -1176,7 +1187,7 @@ async function pollRemote(){
 
   const prevActive = activeSheetName;
   rebuildSheetsFromCache();
-  activeSheetName = sheets.some(s => s.name === prevActive) ? prevActive : (sheets.length ? sheets[0].name : null);
+  activeSheetName = sheets.some(s => s.name === prevActive) ? prevActive : pickDefaultSheetName();
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
