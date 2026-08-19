@@ -67,17 +67,17 @@
   :root, html[data-density="normal"]{
     --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:20px;
     --f-link:12px; --minw-info:160px; --minw-actions:190px;
-    --copybtn-w:52px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
+    --copybtn-w:58px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
   }
   html[data-density="compact"]{
     --f-name:13.5px; --f-venue:12px; --f-time:11.5px; --f-date:16px;
     --f-link:11px; --minw-info:100px; --minw-actions:110px;
-    --copybtn-w:30px; --icon-size:26px; --pad-card:6px 10px 8px; --f-chip:9.5px;
+    --copybtn-w:38px; --icon-size:26px; --pad-card:6px 10px 8px; --f-chip:9.5px;
   }
   html[data-density="tiny"]{
     --f-name:11.5px; --f-venue:10px; --f-time:9.5px; --f-date:12px;
     --f-link:9.5px; --minw-info:64px; --minw-actions:64px;
-    --copybtn-w:20px; --icon-size:20px; --pad-card:4px 6px 5px; --f-chip:8.5px;
+    --copybtn-w:28px; --icon-size:20px; --pad-card:4px 6px 5px; --f-chip:8.5px;
   }
   /* Toolbar icons alone need ~100px+ even at their smallest reasonable
      size — fighting the date for space on one line left almost nothing
@@ -228,6 +228,7 @@
   main{
     flex:1 1 auto;
     overflow-y:auto;
+    overflow-x:visible;
     -webkit-overflow-scrolling:touch;
   }
   .main-inner{max-width:2400px;margin:0 auto;padding:22px 24px 80px;}
@@ -352,13 +353,7 @@
   .shift-block.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
   .shift-block.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .shift-block.is-pinned{box-shadow:inset 0 0 0 1px var(--pin);}
-  .shift-block-toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  .shift-tag{
-    font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
-    font-weight:600;
-  }
-  .shift-tag-day{color:var(--day-color);}
-  .shift-tag-night{color:var(--night-color);}
+  .shift-block-toolbar{display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;}
   .shift-block.shift-day .ev-time{color:var(--day-color);}
   .shift-block.shift-night .ev-time{color:var(--night-color);}
   .shift-block-icons{display:flex;gap:2px;}
@@ -475,11 +470,11 @@
     flex:1 1 auto;
     min-width:0;
     display:flex;align-items:center;justify-content:space-between;
-    gap:5px;
+    gap:4px;
     font-family:'Inter',sans-serif;
     font-size:var(--f-link);font-weight:600;
     text-decoration:none;
-    padding:5px 7px;
+    padding:5px 6px;
     border-radius:6px;
     border:1px solid transparent;
     color:#141316;
@@ -543,7 +538,22 @@
   .notes-panel{
     border-top:1px solid var(--hairline);
     padding:10px 14px 12px;
-    background:rgba(255,255,255,.015);
+    background:var(--card);
+    min-width:270px;
+    box-shadow:0 10px 28px rgba(0,0,0,.5);
+    border-radius:0 0 10px 10px;
+  }
+  /* A notes panel needs real room to not look cramped, but grid columns
+     at high column counts are often narrower than that. Rather than
+     squeeze everything smaller and smaller, the open card breaks out of
+     its own overflow:hidden and sits above its neighbors — the panel
+     below it can then be as wide as it needs, reading as an intentional
+     popover instead of a broken narrow layout. */
+  .ticket:has(.notes-panel),
+  .shift-block:has(.notes-panel){
+    overflow:visible;
+    position:relative;
+    z-index:30;
   }
   .notes-label{
     font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
@@ -778,7 +788,7 @@
       </select>
       <div class="col-stepper" id="colStepper" title="Columns">
         <button class="col-btn" id="colMinus" type="button" aria-label="Fewer columns">−</button>
-        <span class="col-count" id="colCount">6</span>
+        <span class="col-count" id="colCount">8</span>
         <button class="col-btn" id="colPlus" type="button" aria-label="More columns">+</button>
       </div>
       <div class="col-stepper" title="Undo / Redo">
@@ -1009,7 +1019,7 @@ let selectedKeys = new Set();
 let lastSelectedKey = null; // anchor for shift-click range selection
 let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
 let searchModeActive = false;
-let columnCount = 6;
+let columnCount = 8;
 const MIN_COLS = 1, MAX_COLS = 10;
 let remoteCache = []; // every raw row from the last successful fetch, across all sheets — this IS the data; nothing is cached beyond this in-memory copy
 
@@ -2663,14 +2673,12 @@ function shiftBlockHtml(ev, shift){
     linkRow(ev.stubLink, 'StubHub', 'site-stub')
   ].filter(Boolean).join('');
   const isOpen = key === openNotesKey;
-  const shiftLabel = shift === 'day' ? '☀ Day' : '☾ Night';
   const isSelected = selectMode && selectedKeys.has(key);
 
   return `
     <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="shift-block-toolbar">
-        <span class="shift-tag shift-tag-${shift}">${shiftLabel}</span>
         <div class="shift-block-icons">
           ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
