@@ -217,6 +217,9 @@
   }
   .btn:hover{border-color:var(--muted);background:var(--card-hover);}
   .btn.primary{background:var(--amber);color:#151310;border-color:var(--amber);}
+  .btn.danger{background:var(--coral);color:#fff;border-color:var(--coral);}
+  .btn.danger:disabled{opacity:.4;cursor:not-allowed;}
+  #selectModeBtn.active{border-color:var(--teal);color:var(--teal);}
   .btn.primary:hover{filter:brightness(1.08);}
   .btn.ghost{background:transparent;}
   input[type=file]{display:none;}
@@ -304,6 +307,18 @@
   .ticket.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
   .ticket.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
+  .ticket.is-selected, .shift-block.is-selected{outline:2px solid var(--teal);outline-offset:-1px;background:rgba(79,200,191,.06);}
+  .select-check{
+    position:absolute;top:10px;left:10px;z-index:5;
+    width:22px;height:22px;border-radius:50%;
+    border:2px solid rgba(255,255,255,.5);background:rgba(0,0,0,.35);
+    cursor:pointer;padding:0;
+  }
+  .select-check.checked{background:var(--teal);border-color:var(--teal);}
+  .select-check.checked::after{
+    content:"";position:absolute;top:5px;left:7px;width:5px;height:9px;
+    border:solid #0d211f;border-width:0 2px 2px 0;transform:rotate(45deg);
+  }
   .ticket.kb-selected, .shift-block.kb-selected{
     outline:2px solid var(--teal);outline-offset:-1px;
   }
@@ -332,6 +347,7 @@
   }
   .ticket-header-row .ticket-toolbar{padding:6px 6px 6px 0;flex:0 0 auto;}
   .shift-block{
+    position:relative;
     border-top:1px solid var(--hairline);
     padding:10px 14px 12px;
     border-left:3px solid transparent;
@@ -380,11 +396,6 @@
     transition:background .15s ease, color .15s ease, border-color .15s ease;
   }
   .icon-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
-  .icon-btn.notes-btn.has-note{color:var(--teal);}
-  .icon-btn.notes-btn.active{color:var(--teal);background:var(--card-hover);border-color:var(--hairline);}
-  .icon-btn.rating-btn{width:auto;padding:0 8px;gap:4px;}
-  .icon-btn.rating-btn.active{color:var(--rating);}
-  .rating-count{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
   .icon-btn.pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
   .icon-btn.delete-btn:hover{color:var(--coral);border-color:var(--coral);}
   .ticket-toolbar{justify-content:space-between;}
@@ -515,12 +526,21 @@
     background:rgba(255,255,255,.012);
     min-height:74px;
     box-sizing:border-box;
+    cursor:pointer;
+    display:flex;flex-direction:column;gap:4px;
+    transition:background .15s ease;
   }
+  .notes-preview:hover{background:rgba(255,255,255,.03);}
   .shift-block .notes-preview{min-height:0;padding:6px 14px 8px;}
-  .notes-preview.no-content{border-top-color:var(--hairline);opacity:.4;}
+  .notes-preview.no-content{display:flex;align-items:center;justify-content:center;}
+  .notes-plus{color:var(--muted);opacity:.3;font-size:15px;line-height:1;}
+  .notes-preview.no-content:hover .notes-plus{opacity:.6;}
+  .notes-preview-topline{display:flex;align-items:center;gap:6px;min-width:0;}
+  .preview-rating{font-size:12px;color:var(--rating);font-weight:700;flex:0 0 auto;}
   .note-preview-text{
     font-size:12px;color:var(--muted);font-style:italic;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    flex:1 1 auto;min-width:0;
   }
   .notes-panel{
     border-top:1px solid var(--hairline);
@@ -750,6 +770,8 @@
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
       <button class="btn ghost" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
+      <button class="btn ghost" id="selectModeBtn" title="Select cards to delete, like picking photos to delete on a phone">🗑 Select</button>
+      <button class="btn danger" id="confirmDeleteBtn" style="display:none;" disabled>Delete</button>
       <button class="btn primary" id="uploadBtn" title="Adds to THIS sheet — merges in, refreshes matches, skips duplicates. Use + above instead to start a separate new sheet.">Add CSV</button>
       <button class="btn ghost" id="clearBtn" style="display:none;">Clear data</button>
       <input type="file" id="fileInput" accept=".csv">
@@ -851,6 +873,8 @@ const redoBtn = $('#redoBtn');
 const expandAllBtn = $('#expandAllBtn');
 const collapseAllBtn = $('#collapseAllBtn');
 const markSeenBtn = $('#markSeenBtn');
+const selectModeBtn = $('#selectModeBtn');
+const confirmDeleteBtn = $('#confirmDeleteBtn');
 const eyebrowLabel = $('#eyebrowLabel');
 const emptyIcon = $('#emptyIcon');
 const emptyHeading = $('#emptyHeading');
@@ -874,6 +898,9 @@ let openNotesKey = null; // eventKey of the one card whose notes panel is expand
 let hotOnly = false; // filter: only show events with a rating > 0
 let newOnly = false; // filter: only show events flagged New by the last upload
 let collapsedSections = new Set(); // heading text -> collapsed. Click a heading to toggle.
+let selectMode = false; // toggled by the Delete button — turns cards into checkboxes instead of their normal click behavior
+let selectedKeys = new Set();
+let lastSelectedKey = null; // anchor for shift-click range selection
 let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
 let searchModeActive = false;
 let columnCount = 3;
@@ -971,6 +998,59 @@ async function markAllSeen(){
 }
 markSeenBtn.addEventListener('click', () => { markAllSeen(); });
 
+// ---------- Bulk select-and-delete ----------
+// Toggling this turns cards into tap-to-select targets (like picking
+// photos to delete on a phone) instead of their normal click behavior —
+// the listRoot click handler checks selectMode first and short-circuits
+// everything else while it's on.
+function updateSelectModeUI(){
+  selectModeBtn.textContent = selectMode ? 'Cancel' : '🗑 Select';
+  selectModeBtn.classList.toggle('active', selectMode);
+  confirmDeleteBtn.style.display = selectMode ? 'inline-block' : 'none';
+  confirmDeleteBtn.textContent = `Delete${selectedKeys.size ? ` (${selectedKeys.size})` : ''}`;
+  confirmDeleteBtn.disabled = selectedKeys.size === 0;
+}
+
+selectModeBtn.addEventListener('click', () => {
+  selectMode = !selectMode;
+  selectedKeys = new Set();
+  lastSelectedKey = null;
+  updateSelectModeUI();
+  render();
+});
+
+// Shift-click selects the whole range between the last-clicked card and
+// this one, in on-screen order — same pattern as the Photos app.
+function toggleCardSelection(key, shiftKey){
+  if(shiftKey && lastSelectedKey && navigableKeys.includes(lastSelectedKey) && navigableKeys.includes(key)){
+    const fromIdx = navigableKeys.indexOf(lastSelectedKey);
+    const toIdx = navigableKeys.indexOf(key);
+    const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+    for(let i = start; i <= end; i++) selectedKeys.add(navigableKeys[i]);
+  } else if(selectedKeys.has(key)){
+    selectedKeys.delete(key);
+  } else {
+    selectedKeys.add(key);
+  }
+  lastSelectedKey = key;
+  updateSelectModeUI();
+  render();
+}
+
+confirmDeleteBtn.addEventListener('click', async () => {
+  if(!selectedKeys.size) return;
+  if(!confirm(`Delete ${selectedKeys.size} selected event${selectedKeys.size === 1 ? '' : 's'}? You can undo this with Ctrl+Z or the ↶ button.`)) return;
+  pushUndo();
+  allEvents = allEvents.filter(ev => !selectedKeys.has(eventKey(ev)));
+  selectedKeys.forEach(k => delete annotations[k]);
+  selectMode = false;
+  selectedKeys = new Set();
+  lastSelectedKey = null;
+  updateSelectModeUI();
+  render();
+  await pushActiveSheetToRemote();
+});
+
 // Theme is an in-memory preference (matches how column count works) —
 // resets to dark on reload rather than being saved anywhere, since the
 // only persistence in this app is the Google Sheet itself.
@@ -993,6 +1073,22 @@ helpToggleBtn.addEventListener('click', e => {
 });
 helpPopover.addEventListener('click', e => e.stopPropagation());
 document.addEventListener('click', () => helpPopover.classList.remove('open'));
+
+// Clicking anywhere outside the currently-open notes panel closes it.
+// composedPath() is captured at the moment the click fires, before any
+// other handler on this same click can re-render and replace the DOM —
+// a plain "does this element still contain the click target" check would
+// be unreliable here since several other listRoot handlers (rating,
+// pin, price chips) also call render() on click.
+document.addEventListener('click', e => {
+  if(openNotesKey === null) return;
+  const path = e.composedPath();
+  const clickedInsideOpenCard = path.some(el => el.dataset && el.dataset.key === openNotesKey);
+  if(!clickedInsideOpenCard){
+    openNotesKey = null;
+    render();
+  }
+});
 
 // ---------- Google Sheets sync ----------
 // The Google Sheet is the only place data lives — nothing is cached in
@@ -2227,15 +2323,12 @@ function renderStandard(){
 // Full ticket card for standard sheets: name as the headline, date/time,
 // venue, links, and the same rating/pin/notes/prices toolbar every sheet
 // gets — the only thing that's US-Open-specific is the Day/Night split.
-// "Aug 17, 5:30 PM (Monday)" — month/day and time lead since those are
-// what you're scanning for, full weekday name trails in parens for
-// context without competing for attention.
+// "Tue, August 18, 2026 8:00 PM"
 function formatDateTimeHeadline(dateObj){
   const d = new Date(dateObj);
-  const monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const datePart = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
-  return `${monthDay}, ${time} (${weekday})`;
+  return `${datePart} ${time}`;
 }
 
 function cardHtmlStandard(ev){
@@ -2248,31 +2341,18 @@ function cardHtmlStandard(ev){
   const key = eventKey(ev);
   const ann = getAnnotation(key);
   const isOpen = key === openNotesKey;
-  // At 7+ columns, cards get narrow enough that 4 toolbar icons wrap onto
-  // an awkward second line. Dropping the delete icon from the compact
-  // toolbar (it moves into the notes panel instead, or stays reachable
-  // via the Delete/x keyboard shortcut) is enough on its own to keep
-  // flame + pin + notes on one line without wrapping.
-  const isDense = columnCount >= 7;
+  const isSelected = selectMode && selectedKeys.has(key);
 
   return `
-    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
+    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+      ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="ticket-header-row">
         ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
         <div class="ticket-toolbar">
-          ${ratingControlHtml(key, ann.rating)}
-          <div class="toolbar-icons-right">
-            ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
-            <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
-            </button>
-            <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-            </button>
-            ${isDense ? '' : `<button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this event">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-            </button>`}
-          </div>
+          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
+          <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+          </button>
         </div>
       </div>
       <div class="ticket-body">
@@ -2286,7 +2366,7 @@ function cardHtmlStandard(ev){
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
           </div>
         </div>
-        ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
+        ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann, key)}
       </div>
     </div>`;
 }
@@ -2340,23 +2420,6 @@ function buildDateRows(dayEvents, nightEvents){
 
 const QUICK_LABELS = ['Floor', 'Lower Level', '100 Level', '200 Level', '300 Level', '400 Level'];
 
-function hasNotesContent(ann){
-  return !!(ann.note && ann.note.trim()) || !!ann.rating || (ann.sections && ann.sections.some(s => (s.label && s.label.trim()) || (s.price && s.price.trim())));
-}
-
-// Compact toolbar button: shows the current rating (flame + count) as a
-// status indicator. Clicking it opens notes — where the precise 1-5
-// flame row lives — rather than changing the rating directly, so a
-// stray click can't accidentally bump or clear it.
-function ratingControlHtml(key, rating){
-  const filled = rating > 0;
-  return `
-    <button type="button" class="icon-btn rating-btn ${filled ? 'active' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="${filled ? 'Rating ' + rating + '/5 — click to open notes' : 'Not rated — click to open notes'}">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
-      ${filled ? `<span class="rating-count">${rating}</span>` : ''}
-    </button>`;
-}
-
 // Precise 1-5 flame selector shown inside the open notes panel. Clicking
 // the flame that's already the current rating clears it back to 0.
 function ratingRowHtml(key, rating){
@@ -2385,13 +2448,18 @@ function formatPriceDisplay(raw){
   return '$' + formatted;
 }
 
-function notesPreviewHtml(ann){
+function notesPreviewHtml(ann, key){
   const parts = [];
+  const topLine = [];
+  if(ann.rating > 0){
+    topLine.push(`<span class="preview-rating">🔥${ann.rating}</span>`);
+  }
   if(ann.note && ann.note.trim()){
     const trimmed = ann.note.trim();
     const short = trimmed.length > 60 ? trimmed.slice(0, 60) + '…' : trimmed;
-    parts.push(`<div class="note-preview-text">${escapeHtml(short)}</div>`);
+    topLine.push(`<span class="note-preview-text">${escapeHtml(short)}</span>`);
   }
+  if(topLine.length) parts.push(`<div class="notes-preview-topline">${topLine.join('')}</div>`);
   const priced = (ann.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
   if(priced.length){
     // Every priced section shows — price is exactly the kind of thing
@@ -2400,11 +2468,13 @@ function notesPreviewHtml(ann){
     const chips = priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
     parts.push(`<div class="price-preview-row">${chips}</div>`);
   }
-  // Always render this wrapper, even empty — every card reserves the same
-  // minimum vertical space (see .notes-preview's min-height) whether or
-  // not it actually has notes, which is what keeps cards in the same row
-  // aligned instead of the ones with notes sticking out taller.
-  return `<div class="notes-preview ${parts.length ? '' : 'no-content'}">${parts.join('')}</div>`;
+  const hasContent = parts.length > 0;
+  // The whole strip is the "open notes" button now — no separate icon
+  // needed. Empty ones just show a faint "+", not a prompt or a dimmed
+  // box, so it doesn't compete for attention with the date/name/venue.
+  return `<div class="notes-preview ${hasContent ? '' : 'no-content'}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes, rating &amp; prices">
+    ${hasContent ? parts.join('') : '<span class="notes-plus">+</span>'}
+  </div>`;
 }
 
 function priceRowHtml(key, row){
@@ -2452,24 +2522,18 @@ function shiftBlockHtml(ev, shift){
   ].filter(Boolean).join('');
   const isOpen = key === openNotesKey;
   const shiftLabel = shift === 'day' ? '☀ Day' : '☾ Night';
-  const isDense = columnCount >= 7;
+  const isSelected = selectMode && selectedKeys.has(key);
 
   return `
-    <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''}" data-key="${escapeHtml(key)}">
+    <div class="shift-block shift-${shift} ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+      ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="shift-block-toolbar">
         <span class="shift-tag shift-tag-${shift}">${shiftLabel}</span>
         <div class="shift-block-icons">
-          ${ratingControlHtml(key, ann.rating)}
           ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
           </button>
-          <button type="button" class="icon-btn notes-btn ${isOpen ? 'active' : ''} ${hasNotesContent(ann) ? 'has-note' : ''}" data-action="notes" data-key="${escapeHtml(key)}" title="Notes &amp; prices">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-          </button>
-          ${isDense ? '' : `<button type="button" class="icon-btn delete-btn" data-action="delete" data-key="${escapeHtml(key)}" title="Delete this session">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-          </button>`}
         </div>
       </div>
       <div class="shift-block-main">
@@ -2481,7 +2545,7 @@ function shiftBlockHtml(ev, shift){
           ${buttons || '<span class="no-links">No ticket links yet</span>'}
         </div>
       </div>
-      ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann)}
+      ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann, key)}
     </div>`;
 }
 
@@ -2673,6 +2737,12 @@ async function copyToClipboard(text){
 }
 
 listRoot.addEventListener('click', async e => {
+  if(selectMode){
+    const card = e.target.closest('.ticket[data-key], .shift-block[data-key]');
+    if(card) toggleCardSelection(card.dataset.key, e.shiftKey);
+    return;
+  }
+
   // Toggle a section open/closed. Pure DOM manipulation here (no full
   // render) — the CSS adjacent-sibling rule does the actual hiding, so
   // toggling is instant and doesn't disturb scroll position elsewhere.
@@ -2769,8 +2839,16 @@ listRoot.addEventListener('click', async e => {
     saveNotesSoon();
     const rowsContainer = chip.closest('.notes-panel').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
     rowsContainer.insertAdjacentHTML('beforeend', priceRowHtml(key, row));
-    const newLabelInput = rowsContainer.querySelector(`[data-row="${row.id}"][data-field="label"]`);
-    if(newLabelInput && !label) newLabelInput.focus();
+    // A preset chip (Floor, 100 Level, etc.) already fills the label, so
+    // jump straight to the price field to type — only the blank-label
+    // Custom chip needs the label typed first.
+    if(label){
+      const newValueInput = rowsContainer.querySelector(`[data-row="${row.id}"][data-field="price"]`);
+      if(newValueInput) newValueInput.focus();
+    } else {
+      const newLabelInput = rowsContainer.querySelector(`[data-row="${row.id}"][data-field="label"]`);
+      if(newLabelInput) newLabelInput.focus();
+    }
     return;
   }
 
@@ -2807,8 +2885,6 @@ listRoot.addEventListener('input', e => {
     const key = textarea.dataset.key;
     getAnnotation(key).note = textarea.value;
     saveNotesSoon();
-    const notesBtn = textarea.closest('.ticket, .shift-block').querySelector('.notes-btn');
-    if(notesBtn) notesBtn.classList.toggle('has-note', !!textarea.value.trim());
     return;
   }
 
