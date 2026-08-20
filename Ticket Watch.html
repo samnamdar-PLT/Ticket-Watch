@@ -27,37 +27,12 @@
     --day-bg:rgba(245,223,138,.09);
     --night-bg:rgba(108,92,220,.14);
     --pin:#f2c14e;
-    --rating:#ff7a3d;
-    --price-tag-bg:#ffffff;
-    --price-tag-text:#146c2e;
-    --price-tag-border:#bfe8c9;
+    --rating:#ffc94a;
+    --price-chip-bg:rgba(52,211,153,.10);
+    --price-chip-border:rgba(52,211,153,.4);
+    --price-chip-label:#9fcbb4;
+    --price-chip-value:#4ade80;
   }
-  html[data-theme="light"]{
-    --bg:#f5f5f7;
-    --card:#ffffff;
-    --card-hover:#f0f0f3;
-    --hairline:#e1e1e6;
-    --dash:#d4d4da;
-    --text:#17171a;
-    --muted:#6b6b73;
-    --today:#d6432f;
-    --price-tag-bg:#ecfdf3;
-    --price-tag-border:#86e0a0;
-    /* These accents double as small-text/icon colors (eyebrow label, day
-       headings, pin icon, flame rating) as well as button backgrounds.
-       The dark-mode values are pale on purpose to pop against a near-black
-       card — on white they'd wash out, so light mode gets deepened
-       versions. Button backgrounds using these still keep good contrast
-       against their dark text either way. */
-    --amber:#a8790a;
-    --day-color:#9c7300;
-    --night-color:#6a56d6;
-    --day-bg:rgba(156,115,0,.07);
-    --night-bg:rgba(106,86,214,.08);
-    --pin:#a8790a;
-    --rating:#c9531b;
-  }
-
   /* ---------- Card density scaling ----------
      At high column counts, cards get too narrow for full-size text/controls
      to fit without wrapping or growing taller — this scales font sizes,
@@ -132,17 +107,20 @@
     font-size:12px;color:var(--muted);letter-spacing:0;
   }
   .meta-line{
-    flex-basis:100%;
     font-family:'IBM Plex Mono',monospace;
     font-size:10.5px;color:var(--muted);
-    margin-top:2px;
+    flex:0 0 auto;margin:0;white-space:nowrap;
   }
 
+  .sheet-tabs-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    max-width:1600px;margin:6px auto 0;
+  }
   .sheet-tabs{
     display:flex;gap:2px;align-items:flex-end;
     overflow-x:auto;flex-wrap:nowrap;
     scrollbar-width:thin;
-    max-width:1600px;margin:10px auto 0;
+    flex:1 1 auto;min-width:0;
   }
   .sheet-tab{
     display:flex;align-items:center;gap:7px;
@@ -238,6 +216,15 @@
     grid-auto-rows:min-content;
     gap:10px;
     margin-bottom:4px;
+  }
+  /* An open notes panel has a lot to show (links, rating, notes, price
+     sections) — letting the card span 2 grid columns while it's open
+     gives it real extra width through normal grid layout, which the grid
+     reflows other cards around safely, instead of the fragile
+     position:absolute breakout used earlier that caused real drift/
+     overlap bugs in actual browsers. */
+  .day-grid .ticket:has(.notes-panel){
+    grid-column:span 2;
   }
   .col-stepper{
     display:flex;align-items:center;gap:2px;
@@ -394,14 +381,14 @@
   .ticket-body .notes-preview{margin-top:auto;}
   .ticket-body:first-child{border-top:none;}
   .rating-row{display:flex;gap:4px;margin:4px 0 8px;}
-  .rating-flame{
+  .rating-star{
     width:24px;height:24px;display:flex;align-items:center;justify-content:center;
     border-radius:6px;border:1px solid var(--hairline);background:var(--bg);
     color:var(--muted);cursor:pointer;padding:0;
     transition:color .15s ease, border-color .15s ease, background .15s ease;
   }
-  .rating-flame:hover{border-color:var(--rating);color:var(--rating);}
-  .rating-flame.filled{color:var(--rating);border-color:var(--rating);background:rgba(255,122,61,.1);}
+  .rating-star:hover{border-color:var(--rating);color:var(--rating);}
+  .rating-star.filled{color:var(--rating);border-color:var(--rating);background:rgba(255,201,74,.12);}
   .ticket-main{display:flex;flex-wrap:wrap;}
 
   .ticket-info{
@@ -536,37 +523,39 @@
     flex:1 1 auto;min-width:0;
   }
   .notes-panel{
-    border-top:1px solid var(--hairline);
-    padding:10px 14px 12px;
+    border:1px solid var(--teal);
+    padding:14px 16px 14px;
     background:var(--card);
-    min-width:270px;
-    box-shadow:0 10px 28px rgba(0,0,0,.5);
-    border-radius:0 0 10px 10px;
+    box-shadow:0 12px 28px rgba(0,0,0,.4);
+    animation:panelAppear .16s ease-out;
   }
-  /* A notes panel needs real room to not look cramped, but grid columns
-     at high column counts are often narrower than that. Rather than
-     squeeze everything smaller and smaller, the open card breaks out of
-     its own overflow:hidden and sits above its neighbors — the panel
-     below it can then be as wide as it needs, reading as an intentional
-     popover instead of a broken narrow layout. */
-  .ticket:has(.notes-panel),
-  .shift-block:has(.notes-panel){
-    overflow:visible;
-    position:relative;
-    z-index:30;
+  @keyframes panelAppear{
+    from{opacity:0;transform:translateY(-4px);}
+    to{opacity:1;transform:translateY(0);}
   }
+  .panel-section{padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid var(--hairline);}
+  .panel-section-last{border-bottom:none;margin-bottom:0;padding-bottom:0;}
   .notes-label{
-    font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--muted);margin:8px 0 4px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--muted);margin:0 0 8px;display:flex;align-items:center;gap:5px;
   }
   .notes-label:first-child{margin-top:0;}
-  .notes-textarea{
-    width:100%;min-height:38px;resize:vertical;
-    background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
-    color:var(--text);font-family:'Inter',sans-serif;font-size:12.5px;
-    padding:7px 9px;outline:none;
+  .notes-label-row{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;}
+  .notes-label-row .notes-label{margin:0;}
+  .reset-sections-btn{
+    font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;color:var(--muted);
+    background:transparent;border:1px solid var(--hairline);border-radius:6px;
+    padding:3px 9px;cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;
   }
-  .notes-textarea:focus{border-color:var(--teal);}
+  .reset-sections-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
+  .notes-textarea{
+    width:100%;min-height:44px;resize:vertical;
+    background:var(--bg);border:1px solid var(--hairline);border-radius:8px;
+    color:var(--text);font-family:'Inter',sans-serif;font-size:12.5px;line-height:1.5;
+    padding:9px 11px;outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .notes-textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(79,200,191,.12);}
 
   /* ---------- Presale cards ---------- */
   /* Presale cards are capped at 3 columns (see renderPresale), so they
@@ -598,8 +587,9 @@
     background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
     color:var(--text);font-family:'Inter',sans-serif;font-size:12px;
     padding:6px 8px;outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
   }
-  .presale-link-input:focus{border-color:var(--teal);}
+  .presale-link-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(79,200,191,.1);}
   .presale-link-open{
     flex:0 0 auto;color:var(--teal);text-decoration:none;font-size:14px;
     width:22px;height:22px;display:flex;align-items:center;justify-content:center;
@@ -612,11 +602,11 @@
   .price-preview-chip{
     display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;flex:0 0 auto;
     font-family:'Inter',sans-serif;font-size:var(--f-chip, 11px);font-weight:700;line-height:1.25;
-    background:var(--price-tag-bg);border:1px solid var(--price-tag-border);border-radius:5px;
-    padding:2px 6px;color:var(--price-tag-text);
+    background:var(--price-chip-bg);border:1px solid var(--price-chip-border);border-radius:5px;
+    padding:2px 6px;
   }
-  .price-preview-chip b{color:#5a4a12;font-weight:700;font-size:calc(var(--f-chip, 11px) - 1.5px);letter-spacing:.02em;text-transform:uppercase;opacity:.75;}
-  .price-preview-value{font-size:calc(var(--f-chip, 11px) + 1px);}
+  .price-preview-chip b{color:var(--price-chip-label);font-weight:700;font-size:calc(var(--f-chip, 11px) - 1.5px);letter-spacing:.03em;text-transform:uppercase;}
+  .price-preview-value{font-size:calc(var(--f-chip, 11px) + 1px);color:var(--price-chip-value);}
   .price-preview-chip.more{
     background:transparent;color:var(--muted);border-style:dashed;border-color:var(--hairline);
   }
@@ -636,8 +626,8 @@
   }
   .price-formatted{
     flex:0 0 auto;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;
-    background:var(--price-tag-bg);color:var(--price-tag-text);
-    border:1px solid var(--price-tag-border);border-radius:5px;
+    background:var(--price-chip-bg);color:var(--price-chip-value);
+    border:1px solid var(--price-chip-border);border-radius:5px;
     padding:3px 8px;white-space:nowrap;min-width:52px;text-align:center;
   }
   .price-formatted:empty{display:none;}
@@ -656,12 +646,13 @@
   .price-chips{display:grid;grid-template-columns:repeat(3, 1fr);gap:5px;}
   .price-chip{
     font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;
-    padding:5px 4px;border-radius:8px;text-align:center;
+    padding:6px 4px;border-radius:8px;text-align:center;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     border:1px dashed var(--hairline);background:transparent;color:var(--muted);
-    cursor:pointer;transition:border-color .15s ease, color .15s ease;
+    cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease;
   }
-  .price-chip:hover{border-color:var(--teal);color:var(--teal);}
+  .price-chip:active{transform:scale(.96);}
+  .price-chip:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.06);}
   .history-toggle{
     display:block;margin:6px 0 0;padding:0;
     font-family:'IBM Plex Mono',monospace;font-size:10.5px;
@@ -683,10 +674,11 @@
   .panel-archive-btn, .panel-delete-btn{
     flex:1 1 0;
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
-    padding:7px 10px;border-radius:6px;text-align:center;
+    padding:8px 10px;border-radius:8px;text-align:center;
     border:1px solid var(--hairline);background:transparent;color:var(--muted);
-    cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease;
+    cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease;
   }
+  .panel-archive-btn:active, .panel-delete-btn:active{transform:scale(.97);}
   .panel-archive-btn:hover{border-color:var(--amber);color:var(--amber);background:rgba(242,193,78,.06);}
   .panel-delete-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
 
@@ -730,7 +722,16 @@
     background:var(--bg);border:1px solid var(--hairline);border-radius:4px;
     padding:2px 6px;color:var(--text);min-width:20px;text-align:center;
   }
-  #helpPopover{width:280px;}
+  #moreMenuPopover{width:280px;max-height:70vh;overflow-y:auto;}
+  .menu-row-btn{
+    display:block;width:100%;text-align:left;
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--text);
+    background:transparent;border:none;border-radius:6px;
+    padding:8px 8px;cursor:pointer;margin:0 0 2px;
+    transition:background .15s ease;
+  }
+  .menu-row-btn:hover{background:var(--card-hover);}
+  .menu-row-divider{height:1px;background:var(--hairline);margin:8px 0 12px;}
 
   /* ---------- New Sheet modal ---------- */
   .modal-overlay{
@@ -780,6 +781,7 @@
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
   #deletePasscodeInput{
     font-size:22px;letter-spacing:10px;text-align:center;font-family:'IBM Plex Mono',monospace;
+    -webkit-text-security:disc;
   }
   .passcode-error{color:var(--coral);font-size:12px;margin:-10px 0 14px;}
 
@@ -829,7 +831,7 @@
   }
   .insights-price-label{flex:1 1 auto;color:var(--text);font-weight:600;}
   .insights-price-count{color:var(--muted);font-size:11px;flex:0 0 auto;}
-  .insights-price-range{color:var(--price-tag-text, #2e9e57);font-weight:700;flex:0 0 auto;}
+  .insights-price-range{color:var(--price-chip-value);font-weight:700;flex:0 0 auto;}
   .insights-empty{color:var(--muted);font-size:12.5px;font-style:italic;margin:2px 0;}
 
   /* ---------- Empty state ---------- */
@@ -854,7 +856,36 @@
   .drop-zone.drag{border-color:var(--amber);background:rgba(242,193,78,.05);}
 
   .no-results{color:var(--muted);font-size:14px;padding:40px 0;text-align:center;}
+  .did-you-mean-btn{
+    margin-top:10px;background:transparent;border:1px dashed var(--teal);color:var(--teal);
+    font-family:'Inter',sans-serif;font-size:13px;padding:6px 14px;border-radius:8px;cursor:pointer;
+  }
+  .did-you-mean-btn:hover{background:rgba(79,200,191,.08);}
+  .did-you-mean-btn b{color:var(--text);}
+  .sheet-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);
+    background:var(--card-hover);border:1px solid var(--hairline);border-radius:5px;
+    padding:3px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;
+  }
+  .search-pin-flag{font-size:12px;flex:0 0 auto;}
+  .search-result-preview{cursor:default;}
+  .search-result-preview:hover{background:rgba(255,255,255,.012);}
+  .go-to-sheet-btn{
+    display:block;width:calc(100% - 28px);margin:10px 14px 12px;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:7px 10px;border-radius:6px;text-align:center;
+    border:1px solid var(--teal);background:transparent;color:var(--teal);
+    cursor:pointer;transition:background .15s ease;
+  }
+  .go-to-sheet-btn:hover{background:rgba(79,200,191,.1);}
 
+  /* ============================================================
+     MOBILE + TABLET — everything below is scoped to max-width
+     media queries and never affects desktop layout/sizing.
+     ============================================================ */
+
+  /* ---------- Phones (≤560px) ---------- */
   @media (max-width:560px){
     h1{font-size:20px;}
     .shift-block-main{flex-direction:column;align-items:stretch;}
@@ -866,6 +897,62 @@
     .perf::after{left:auto;right:-9px;bottom:-9px;top:auto;}
     .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
     .link-row{flex:1 1 30%;}
+
+    /* Only one card fits per row anyway, so there's no reason for text
+       to be scaled down for a high desktop column count someone set on
+       a different device — force comfortably-sized, touch-friendly text
+       and controls regardless of whatever data-density says. */
+    html[data-density]{
+      --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:17px;
+      --f-link:13px; --minw-info:0; --minw-actions:0;
+      --copybtn-w:46px; --icon-size:38px; --pad-card:10px 14px 12px; --f-chip:11.5px;
+    }
+
+    /* A single-column phone layout has no "neighboring card" for the
+       open notes panel to make room from — span is meaningless here. */
+    .day-grid .ticket:has(.notes-panel){grid-column:span 1;}
+
+    /* Header: stack into a simple, thumb-friendly column instead of a
+       long wrapping row of 15+ buttons fighting for space. */
+    .header-inner{padding:0;gap:10px;}
+    .toolbar{gap:6px;}
+    .toolbar .btn, .toolbar .filter-btn{padding:9px 10px;font-size:12.5px;}
+    #searchInput{min-width:0;}
+    .search-wrap, #searchInput{flex:1 1 100%;}
+    #colStepper{display:none;}
+    .sheet-tabs-row{flex-wrap:wrap;gap:6px;}
+    .meta-line{flex-basis:100%;order:3;}
+
+    /* Bigger touch targets throughout — 32px icon buttons are fine for a
+       mouse cursor but tight for a fingertip. */
+    .select-check{width:28px;height:28px;}
+    .go-to-sheet-btn, .panel-archive-btn, .panel-delete-btn{padding:10px;}
+    .rating-star{width:32px;height:32px;}
+    .price-chip{padding:8px 6px;}
+
+    /* Modals already scale via width:100% + the overlay's own padding —
+       just cap height sensibly so a tall modal never gets clipped by a
+       short phone viewport. */
+    .modal-box, .insights-modal{max-height:88vh;overflow-y:auto;}
+    .insights-modal{max-width:100%;}
+  }
+
+  /* ---------- Tablets (561px–1024px) ---------- */
+  @media (min-width:561px) and (max-width:1024px){
+    .day-grid{grid-template-columns:repeat(2, 1fr);}
+
+    /* Same reasoning as phones — 2 comfortably-wide columns shouldn't
+       inherit a "tiny" density meant for 8 narrow desktop columns. */
+    html[data-density]{
+      --f-name:15.5px; --f-venue:13.5px; --f-time:13px; --f-date:18px;
+      --f-link:12.5px; --minw-info:140px; --minw-actions:170px;
+      --copybtn-w:42px; --icon-size:36px; --pad-card:9px 14px 11px; --f-chip:11px;
+    }
+
+    .day-grid .ticket:has(.notes-panel){grid-column:span 2;}
+    .toolbar .btn, .toolbar .filter-btn{padding:8px 11px;}
+    .select-check{width:26px;height:26px;}
+    .insights-modal{max-width:520px;}
   }
 </style>
 </head>
@@ -903,15 +990,12 @@
         <button class="col-btn" id="expandAllBtn" type="button" aria-label="Expand all sections" title="Expand all sections">▾</button>
         <button class="col-btn" id="collapseAllBtn" type="button" aria-label="Collapse all sections" title="Collapse all sections">▸</button>
       </div>
-      <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">🔥 Rated only</button>
+      <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">⭐ Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="filter-btn" id="archiveFilterBtn" title="Show archived events instead of hiding them">📦 Archive</button>
-      <button class="btn ghost" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">Mark all seen</button>
-      <button class="btn ghost" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
       <button class="btn ghost" id="selectModeBtn" title="Select cards to delete, like picking photos to delete on a phone">🗑 Select</button>
       <button class="btn danger" id="confirmDeleteBtn" style="display:none;" disabled>Delete</button>
       <button class="btn primary" id="uploadBtn" title="Adds to THIS sheet — merges in, refreshes matches, skips duplicates. Use + above instead to start a separate new sheet.">Add CSV</button>
-      <button class="btn ghost" id="clearBtn" style="display:none;">Clear data</button>
       <input type="file" id="fileInput" accept=".csv">
       <div class="sync-wrap">
         <button class="btn ghost" id="syncToggleBtn" title="Sync with Google Sheets">☁ Sync</button>
@@ -925,10 +1009,13 @@
           <p class="sync-status" id="syncStatus">Not connected.</p>
         </div>
       </div>
-      <button class="btn ghost theme-toggle-btn" id="themeToggleBtn" title="Switch to light mode">🌙</button>
       <div class="sync-wrap">
-        <button class="btn ghost theme-toggle-btn" id="helpToggleBtn" title="Keyboard shortcuts">⌨</button>
-        <div class="sync-popover" id="helpPopover">
+        <button class="btn ghost theme-toggle-btn" id="moreMenuToggleBtn" title="More">⋯</button>
+        <div class="sync-popover" id="moreMenuPopover">
+          <button class="menu-row-btn" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">✓ Mark all seen</button>
+          <button class="menu-row-btn" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
+          <button class="menu-row-btn" id="clearBtn" style="display:none;">🗑 Clear data</button>
+          <div class="menu-row-divider"></div>
           <p class="notes-label">Keyboard shortcuts</p>
           <div class="shortcuts-list">
             <div><kbd>/</kbd> Focus search</div>
@@ -948,9 +1035,11 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="sheet-tabs-row">
+    <div class="sheet-tabs" id="sheetTabs"></div>
     <p class="meta-line" id="metaLine"></p>
   </div>
-  <div class="sheet-tabs" id="sheetTabs"></div>
 </header>
 
 <main id="main">
@@ -996,7 +1085,7 @@
   <div class="modal-box">
     <h3 class="modal-title">Confirm Delete</h3>
     <p class="notes-label" id="deletePasscodeLabel">Enter the 4-digit passcode to delete</p>
-    <input type="password" id="deletePasscodeInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" autocomplete="off">
+    <input type="text" id="deletePasscodeInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-bwignore name="tw-delete-code-not-a-password">
     <p class="passcode-error" id="deletePasscodeError" style="display:none;">Incorrect passcode.</p>
     <div class="modal-actions">
       <button class="btn ghost" id="cancelDeletePasscodeBtn" type="button">Cancel</button>
@@ -1066,7 +1155,6 @@ const insightsTitle = $('#insightsTitle');
 const insightsBody = $('#insightsBody');
 const closeInsightsBtn = $('#closeInsightsBtn');
 const clearPastBtn = $('#clearPastBtn');
-const themeToggleBtn = $('#themeToggleBtn');
 
 // ---------- Delete passcode gate ----------
 // A deliberate 4-digit PIN before any card gets deleted — this is a
@@ -1239,7 +1327,7 @@ archiveFilterBtn.addEventListener('click', () => {
   render();
 });
 
-clearPastBtn.addEventListener('click', () => { clearPastEvents(); });
+clearPastBtn.addEventListener('click', () => { clearPastEvents(); moreMenuPopover.classList.remove('open'); });
 
 undoBtn.addEventListener('click', () => { undo(); });
 redoBtn.addEventListener('click', () => { redo(); });
@@ -1264,7 +1352,7 @@ async function markAllSeen(){
   render();
   await pushActiveSheetToRemote();
 }
-markSeenBtn.addEventListener('click', () => { markAllSeen(); });
+markSeenBtn.addEventListener('click', () => { markAllSeen(); moreMenuPopover.classList.remove('open'); });
 
 // ---------- Bulk select-and-delete ----------
 // Toggling this turns cards into tap-to-select targets (like picking
@@ -1320,28 +1408,14 @@ confirmDeleteBtn.addEventListener('click', async () => {
   await pushActiveSheetToRemote();
 });
 
-// Theme is an in-memory preference (matches how column count works) —
-// resets to dark on reload rather than being saved anywhere, since the
-// only persistence in this app is the Google Sheet itself.
-let currentTheme = 'dark';
-function applyTheme(theme){
-  currentTheme = theme;
-  document.documentElement.setAttribute('data-theme', theme);
-  themeToggleBtn.textContent = theme === 'light' ? '☀️' : '🌙';
-  themeToggleBtn.title = theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
-}
-themeToggleBtn.addEventListener('click', () => {
-  applyTheme(currentTheme === 'light' ? 'dark' : 'light');
-});
-
-const helpToggleBtn = $('#helpToggleBtn');
-const helpPopover = $('#helpPopover');
-helpToggleBtn.addEventListener('click', e => {
+const moreMenuToggleBtn = $('#moreMenuToggleBtn');
+const moreMenuPopover = $('#moreMenuPopover');
+moreMenuToggleBtn.addEventListener('click', e => {
   e.stopPropagation();
-  helpPopover.classList.toggle('open');
+  moreMenuPopover.classList.toggle('open');
 });
-helpPopover.addEventListener('click', e => e.stopPropagation());
-document.addEventListener('click', () => helpPopover.classList.remove('open'));
+moreMenuPopover.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', () => moreMenuPopover.classList.remove('open'));
 
 // Clicking anywhere outside the currently-open notes panel closes it.
 // composedPath() is captured at the moment the click fires, before any
@@ -1464,9 +1538,12 @@ function pickDefaultSheetName(){
 // in-memory remoteCache — no fetch needed, it's already there. Notes,
 // rating, pin, and price sections all live in one annotations record per
 // event, used the same way regardless of sheet type.
-function syncActiveSheetFromCache(){
-  const rows = remoteCache.filter(ev => ev.appSheet === activeSheetName);
-  allEvents = rows.map(ev => {
+// Converts raw remoteCache rows (one sheet's worth, or search-all-sheets'
+// worth) into the {events, annotations} shape the rest of the app works
+// with. Shared by the normal active-sheet sync and by cross-sheet search,
+// so both stay consistent with exactly one conversion path.
+function buildEventsAndAnnotations(rows){
+  const events = rows.map(ev => {
     const parsed = parseEventDate(ev.dateStr);
     const presaleParsed = ev.presaleDateStr ? parseEventDate(ev.presaleDateStr) : null;
     return {
@@ -1476,14 +1553,23 @@ function syncActiveSheetFromCache(){
       vividLink: ev.vividLink, stubLink: ev.stubLink,
       presaleDateStr: ev.presaleDateStr || '',
       presaleDateObj: presaleParsed ? presaleParsed.toISOString() : null,
-      code: ev.code || '', publicSaleDateStr: ev.publicSaleDateStr || ''
+      code: ev.code || '', publicSaleDateStr: ev.publicSaleDateStr || '',
+      __sheet: ev.appSheet, __mode: ev.sheetMode || 'standard'
     };
   });
-  annotations = {};
+  const annotationsMap = {};
   rows.forEach((ev, idx) => {
-    const key = eventKey(allEvents[idx]);
-    annotations[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew, archived: !!ev.archived, noteHistory: ev.noteHistory || [] };
+    const key = eventKey(events[idx]);
+    annotationsMap[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew, archived: !!ev.archived, noteHistory: ev.noteHistory || [] };
   });
+  return { events, annotationsMap };
+}
+
+function syncActiveSheetFromCache(){
+  const rows = remoteCache.filter(ev => ev.appSheet === activeSheetName);
+  const built = buildEventsAndAnnotations(rows);
+  allEvents = built.events;
+  annotations = built.annotationsMap;
   metaLine.textContent = allEvents.length ? `${allEvents.length} events · live from Google Sheets` : '';
 }
 
@@ -1986,16 +2072,69 @@ function eventKey(ev){
 // "ashe ticketmaster" finds an Arthur Ashe session with a Ticketmaster
 // link even though those two words live in different fields, not just
 // queries that happen to appear as one exact phrase.
-function matchesSearch(ev, query){
+// Edit-distance calculation that also counts a transposed adjacent pair
+// (like "mras" for "mars") as a single edit instead of two — that's one
+// of the most common real typo patterns, and plain Levenshtein alone
+// under-tolerates it.
+function levenshtein(a, b){
+  if(a === b) return 0;
+  if(!a.length) return b.length;
+  if(!b.length) return a.length;
+  const d = Array.from({length: a.length + 1}, () => new Array(b.length + 1).fill(0));
+  for(let i = 0; i <= a.length; i++) d[i][0] = i;
+  for(let j = 0; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++){
+    for(let j = 1; j <= b.length; j++){
+      const cost = a[i-1] === b[j-1] ? 0 : 1;
+      d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + cost);
+      if(i > 1 && j > 1 && a[i-1] === b[j-2] && a[i-2] === b[j-1]){
+        d[i][j] = Math.min(d[i][j], d[i-2][j-2] + cost);
+      }
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// A search term "fuzzy matches" a haystack if it appears exactly, OR if
+// some word in the haystack is close enough in spelling — tolerance
+// scales with word length so short words still need to be close to
+// exact (a 1-letter typo tolerance on "a" would match almost anything).
+function fuzzyTermMatches(term, haystack, haystackWords){
+  if(haystack.includes(term)) return true;
+  if(term.length < 3) return false; // too short to fuzzy-match meaningfully
+  const tolerance = term.length <= 4 ? 1 : term.length <= 8 ? 2 : 3;
+  return haystackWords.some(w => w.length >= term.length - tolerance && levenshtein(term, w) <= tolerance);
+}
+
+// Every representation of the event's date that someone might plausibly
+// type — "aug 21", "august 21", "8/21", "2026-08-21" — so searching a
+// date actually matches, not just name/venue/links/notes.
+function dateSearchTokens(ev){
+  if(!ev.dateObj) return '';
+  const d = new Date(ev.dateObj);
+  if(isNaN(d.getTime())) return '';
+  return [
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+    d.toLocaleDateString('en-US', { weekday: 'long' }),
+    d.toLocaleDateString('en-US', { weekday: 'short' }),
+    `${d.getMonth() + 1}/${d.getDate()}`,
+    d.toISOString().slice(0, 10),
+    String(d.getFullYear())
+  ].join(' ').toLowerCase();
+}
+
+function matchesSearch(ev, query, annOverride){
   if(!query) return true;
-  const ann = getAnnotation(eventKey(ev));
+  const ann = annOverride || getAnnotation(eventKey(ev));
   const priceLabels = (ann.sections || []).map(s => s.label || '').join(' ');
   const haystack = [
     ev.name, ev.venue, ev.primaryLink, ev.vividLink, ev.stubLink,
-    ev.primarySite, ann.note, priceLabels
+    ev.primarySite, ann.note, priceLabels, dateSearchTokens(ev)
   ].join(' ').toLowerCase();
+  const haystackWords = haystack.split(/\s+/).filter(Boolean);
   const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  return terms.every(term => haystack.includes(term));
+  return terms.every(term => fuzzyTermMatches(term, haystack, haystackWords));
 }
 
 // New uploads add on top of what's here; matching events (same key) get
@@ -2283,7 +2422,7 @@ document.addEventListener('keydown', e => {
     if(isTyping) e.target.blur();
     if(openNotesKey){ closeNotesPanel(); render(); }
     syncPopover.classList.remove('open');
-    helpPopover.classList.remove('open');
+    moreMenuPopover.classList.remove('open');
     if(addSheetModal.style.display !== 'none') closeAddSheetModal();
     if(insightsModal.style.display !== 'none') closeInsightsModal();
     return;
@@ -2514,7 +2653,12 @@ function renderTabs(){
   sheetTabs.querySelectorAll('.sheet-tab:not(.add-tab)').forEach(btn => {
     btn.addEventListener('click', e => {
       if(e.target.classList.contains('tab-close')) return;
+      if(searchInput.value.trim()){
+        searchInput.value = '';
+        updateSearchModeState();
+      }
       if(btn.dataset.name !== activeSheetName) setActiveSheet(btn.dataset.name);
+      else render();
     });
     btn.addEventListener('dblclick', e => {
       if(e.target.classList.contains('tab-close')) return;
@@ -2663,8 +2807,27 @@ function groupByVenue(events){
 // grouping headings, since event names are rarely repeated the way
 // venues are.
 function groupByName(events){
-  const sorted = [...events].sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
-  return [{ heading: '', showHeading: false, showTodayTag: false, events: sorted }];
+  const sorted = [...events].sort((a, b) => {
+    const na = (a.name || '').toLowerCase(), nb = (b.name || '').toLowerCase();
+    const cmp = na.localeCompare(nb);
+    if(cmp !== 0) return cmp;
+    if(!a.dateObj && !b.dateObj) return 0;
+    if(!a.dateObj) return 1;
+    if(!b.dateObj) return -1;
+    return new Date(a.dateObj) - new Date(b.dateObj);
+  });
+  const groups = [];
+  let currentKey = null, currentGroup = null;
+  sorted.forEach(ev => {
+    const key = (ev.name && ev.name.trim()) ? ev.name.trim() : 'Untitled event';
+    if(key !== currentKey){
+      currentKey = key;
+      currentGroup = { heading: key, showHeading: true, showTodayTag: false, events: [] };
+      groups.push(currentGroup);
+    }
+    currentGroup.events.push(ev);
+  });
+  return groups;
 }
 
 // Sorts by your own logged rating, highest flame count first — this is
@@ -2676,6 +2839,14 @@ function groupByRating(events){
 }
 
 function render(){
+  const query = searchInput.value.trim();
+  if(query){
+    sortSelect.style.display = 'none';
+    renderSearchResults(query);
+    refreshNavigation();
+    return;
+  }
+  updateModeUI();
   const mode = activeSheetMode();
   if(mode === 'usopen') renderUsOpen();
   else if(mode === 'presale') renderPresale();
@@ -2723,7 +2894,7 @@ function renderPresale(){
   const query = searchInput.value.trim().toLowerCase();
   const hasData = allEvents.length > 0;
   emptyState.style.display = hasData ? 'none' : 'block';
-  clearBtn.style.display = hasData ? 'inline-block' : 'none';
+  clearBtn.style.display = hasData ? 'block' : 'none';
 
   if(!hasData){
     listRoot.innerHTML = '';
@@ -2770,11 +2941,113 @@ function renderPresale(){
   listRoot.innerHTML = html;
 }
 
+// A sheet's icon for the little badge on each cross-sheet search result —
+// same icons used on the actual sheet tabs, so it reads consistently.
+function sheetIconFor(mode){
+  return mode === 'usopen' ? '🎾' : mode === 'presale' ? '🎫' : '🎟️';
+}
+
+// Read-focused card for cross-sheet search results: full ticket links
+// (fully functional — no sheet context needed to open/copy a URL), a
+// read-only summary of notes/rating/prices, and a "Go to sheet" jump
+// that switches you into that event's home sheet with the same search
+// still applied, landing you right on it for normal editing. Deliberately
+// not editable in place — safely routing a save back to whichever sheet
+// each result actually lives in is a bigger change than this pass, and a
+// working jump is a lot safer than a half-built cross-sheet write path.
+function cardHtmlSearchResult(ev, ann){
+  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
+  const buttons = [
+    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
+    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
+    linkRow(ev.stubLink, 'StubHub', 'site-stub')
+  ].filter(Boolean).join('');
+
+  const previewBits = [];
+  if(ann.rating > 0) previewBits.push(`<span class="preview-rating">⭐${ann.rating}</span>`);
+  if(ann.note && ann.note.trim()){
+    const short = ann.note.trim().length > 60 ? ann.note.trim().slice(0, 60) + '…' : ann.note.trim();
+    previewBits.push(`<span class="note-preview-text">${escapeHtml(short)}</span>`);
+  }
+  const priced = (ann.sections || []).filter(s => s.label && s.label.trim() && s.price && s.price.trim());
+  const chipsHtml = priced.length ? `<div class="price-preview-row">${priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label)}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price))}</span></span>`).join('')}</div>` : '';
+
+  return `
+    <div class="ticket search-result-card">
+      <div class="ticket-header-row">
+        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
+        <div class="ticket-toolbar">
+          <span class="sheet-badge" title="Found on: ${escapeHtml(ev.__sheet)}">${sheetIconFor(ev.__mode)} ${escapeHtml(ev.__sheet)}</span>
+          ${ann.pinned ? '<span class="search-pin-flag" title="Pinned">📌</span>' : ''}
+        </div>
+      </div>
+      <div class="ticket-body">
+        <div class="ticket-main">
+          <div class="ticket-info">
+            <div class="ev-name">${escapeHtml(ev.name)}</div>
+            <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+          </div>
+          <div class="perf"></div>
+          <div class="ticket-actions">
+            ${buttons || '<span class="no-links">No ticket links yet</span>'}
+          </div>
+        </div>
+        ${previewBits.length || chipsHtml ? `<div class="notes-preview search-result-preview">${previewBits.length ? `<div class="notes-preview-topline">${previewBits.join('')}</div>` : ''}${chipsHtml}</div>` : ''}
+        <button type="button" class="go-to-sheet-btn" data-action="goto-sheet" data-sheet="${escapeHtml(ev.__sheet)}">Go to ${escapeHtml(ev.__sheet)} →</button>
+      </div>
+    </div>`;
+}
+
+// When nothing matches, offers the single closest event name (by edit
+// distance) as a "did you mean" — genuinely helpful for a typo that was
+// too different for the term-level fuzzy match to catch on its own.
+function searchNoResultsHtml(query, allSearchableEvents){
+  const names = [...new Set(allSearchableEvents.map(e => e.name).filter(Boolean))];
+  let best = null, bestScore = Infinity;
+  const q = query.toLowerCase().trim();
+  names.forEach(name => {
+    const dist = levenshtein(q, name.toLowerCase().slice(0, q.length + 4));
+    const score = dist / Math.max(q.length, 4);
+    if(score < bestScore){ bestScore = score; best = name; }
+  });
+  const suggestion = (best && bestScore <= 0.5)
+    ? `<button type="button" class="did-you-mean-btn" id="didYouMeanBtn" data-suggestion="${escapeHtml(best)}">Did you mean <b>${escapeHtml(best)}</b>?</button>`
+    : '';
+  return `<div class="no-results">No matches for "${escapeHtml(query)}" across any sheet.${suggestion ? '<br>' + suggestion : ''}</div>`;
+}
+
+// Searching combines every sheet into one result set — the point being
+// you shouldn't have to remember which sheet you filed something under
+// to find it again. Full read access; edits happen after jumping into
+// the result's home sheet (see cardHtmlSearchResult).
+function renderSearchResults(query){
+  emptyState.style.display = 'none';
+  clearBtn.style.display = 'none';
+
+  const { events, annotationsMap } = buildEventsAndAnnotations(remoteCache);
+  const matched = events.filter(ev => matchesSearch(ev, query, annotationsMap[eventKey(ev)] || getAnnotation(eventKey(ev))));
+
+  countLabel.textContent = `${matched.length} match${matched.length === 1 ? '' : 'es'} across all sheets`;
+
+  if(!matched.length){
+    listRoot.innerHTML = searchNoResultsHtml(query, events);
+    return;
+  }
+
+  const cols = Math.min(columnCount, 4); // search cards carry more info per card, same reasoning as presale
+  let html = '';
+  groupByName(matched).forEach(g => {
+    html += dayHeadingHtml(g.heading);
+    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => cardHtmlSearchResult(ev, annotationsMap[eventKey(ev)] || getAnnotation(eventKey(ev)))).join('')}</div>`;
+  });
+  listRoot.innerHTML = html;
+}
+
 function renderStandard(){
   const query = searchInput.value.trim().toLowerCase();
   const hasData = allEvents.length > 0;
   emptyState.style.display = hasData ? 'none' : 'block';
-  clearBtn.style.display = hasData ? 'inline-block' : 'none';
+  clearBtn.style.display = hasData ? 'block' : 'none';
 
   if(!hasData){
     listRoot.innerHTML = '';
@@ -2967,7 +3240,7 @@ function cardHtmlStandard(ev){
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
           </div>
         </div>
-        ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann, key)}
+        ${isOpen ? notesPanelHtml(key, ann, ev) : notesPreviewHtml(ann, key)}
       </div>
     </div>`;
 }
@@ -3019,19 +3292,19 @@ function buildDateRows(dayEvents, nightEvents){
   return Array.from(map.values()).sort((a,b) => a.sortValue - b.sortValue);
 }
 
-const QUICK_LABELS = ['Floor', 'Lower Lvl', '100 Lvl', '200 Lvl', '300 Lvl', '400 Lvl'];
+const QUICK_LABELS = ['Floor', 'Mezz', '100s', '200s', '300s', '400s'];
 
 // Precise 1-5 flame selector shown inside the open notes panel. Clicking
 // the flame that's already the current rating clears it back to 0.
 function ratingRowHtml(key, rating){
-  let flames = '';
+  let stars = '';
   for(let i = 1; i <= 5; i++){
     const on = i <= rating;
-    flames += `<button type="button" class="rating-flame ${on ? 'filled' : ''}" data-action="rate-set" data-key="${escapeHtml(key)}" data-rating="${i}" title="Rate ${i}/5">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-3 1 0 3 2 3 5a6 6 0 0 1-12 0c0-4 3-5 4-9z"/></svg>
+    stars += `<button type="button" class="rating-star ${on ? 'filled' : ''}" data-action="rate-set" data-key="${escapeHtml(key)}" data-rating="${i}" title="Rate ${i}/5">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.63 22 9.24 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.24 8.91 8.63 12 2"/></svg>
     </button>`;
   }
-  return `<div class="rating-row">${flames}</div>`;
+  return `<div class="rating-row">${stars}</div>`;
 }
 
 // Formats a price value: pure numbers get "$" + comma grouping (and keep
@@ -3160,7 +3433,7 @@ function insightsBodyHtml(insights){
       <span class="insights-show-date">${escapeHtml(dateStr)}</span>
       <span class="insights-show-venue">${escapeHtml(ev.venue || '')}</span>
       ${ann.isNew ? '<span class="new-badge">NEW</span>' : ''}
-      ${ann.rating ? `<span class="insights-show-rating">🔥${ann.rating}</span>` : ''}
+      ${ann.rating ? `<span class="insights-show-rating">⭐${ann.rating}</span>` : ''}
       ${ann.archived ? '<span class="insights-show-archived">📦</span>' : ''}
     </div>`;
   }).join('');
@@ -3197,7 +3470,7 @@ function notesPreviewHtml(ann, key){
   const parts = [];
   const topLine = [];
   if(ann.rating > 0){
-    topLine.push(`<span class="preview-rating">🔥${ann.rating}</span>`);
+    topLine.push(`<span class="preview-rating">⭐${ann.rating}</span>`);
   }
   if(ann.note && ann.note.trim()){
     const trimmed = ann.note.trim();
@@ -3205,12 +3478,14 @@ function notesPreviewHtml(ann, key){
     topLine.push(`<span class="note-preview-text">${escapeHtml(short)}</span>`);
   }
   if(topLine.length) parts.push(`<div class="notes-preview-topline">${topLine.join('')}</div>`);
-  const priced = (ann.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
+  const priced = (ann.sections || []).filter(s => s.label && s.label.trim() && s.price && s.price.trim());
   if(priced.length){
-    // Every priced section shows — price is exactly the kind of thing
-    // that shouldn't be hidden behind a "+N" click. Chips are compact
-    // enough to just wrap to a second line instead.
-    const chips = priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label || '—')}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price) || '—')}</span></span>`).join('');
+    // Every complete priced section shows — price is exactly the kind of
+    // thing that shouldn't be hidden behind a "+N" click. Chips are
+    // compact enough to just wrap to a second line instead. Sections
+    // still missing a price don't show here at all (they're incomplete —
+    // still visible and editable in the open notes panel).
+    const chips = priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label)}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price))}</span></span>`).join('');
     parts.push(`<div class="price-preview-row">${chips}</div>`);
   }
   const hasContent = parts.length > 0;
@@ -3254,20 +3529,42 @@ function noteHistoryHtml(key, ann){
     ${expanded ? `<div class="history-list">${list}</div>` : ''}`;
 }
 
-function notesPanelHtml(key, ann){
+function notesPanelHtml(key, ann, ev){
   const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
   const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
     + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
+  // Ticket link editing lives here for every card, not just presale mode —
+  // any show can end up missing a VividSeats/StubHub link that needs
+  // adding by hand, not just presales.
+  const linksHtml = ev ? `
+    <div class="panel-section">
+      <p class="notes-label">🔗 Ticket links</p>
+      <div class="presale-links">
+        ${presaleLinkRowHtml(key, 'TM', 'primaryLink', ev.primaryLink, 'Paste Ticketmaster / presale link')}
+        ${presaleLinkRowHtml(key, 'Vivid', 'vividLink', ev.vividLink, 'Paste VividSeats link')}
+        ${presaleLinkRowHtml(key, 'Stub', 'stubLink', ev.stubLink, 'Paste StubHub link')}
+      </div>
+    </div>` : '';
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
-      <p class="notes-label">Rating</p>
-      ${ratingRowHtml(key, ann.rating)}
-      <p class="notes-label">Notes</p>
-      <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
-      ${noteHistoryHtml(key, ann)}
-      <p class="notes-label">Sections &amp; prices</p>
-      <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
-      <div class="price-chips">${chips}</div>
+      ${linksHtml}
+      <div class="panel-section">
+        <p class="notes-label">⭐ Rating</p>
+        ${ratingRowHtml(key, ann.rating)}
+      </div>
+      <div class="panel-section">
+        <p class="notes-label">📝 Notes</p>
+        <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
+        ${noteHistoryHtml(key, ann)}
+      </div>
+      <div class="panel-section panel-section-last">
+        <div class="notes-label-row">
+          <p class="notes-label">💰 Sections &amp; prices</p>
+          ${ann.sections.length ? `<button type="button" class="reset-sections-btn" data-action="reset-sections" data-key="${escapeHtml(key)}" title="Clear every section so you can start over">↺ Reset</button>` : ''}
+        </div>
+        <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
+        <div class="price-chips">${chips}</div>
+      </div>
       <div class="panel-action-row">
         <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
         <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete</button>
@@ -3312,7 +3609,7 @@ function shiftBlockHtml(ev, shift){
           ${buttons || '<span class="no-links">No ticket links yet</span>'}
         </div>
       </div>
-      ${isOpen ? notesPanelHtml(key, ann) : notesPreviewHtml(ann, key)}
+      ${isOpen ? notesPanelHtml(key, ann, ev) : notesPreviewHtml(ann, key)}
     </div>`;
 }
 
@@ -3361,7 +3658,7 @@ function renderUsOpen(){
   const query = searchInput.value.trim().toLowerCase();
   const hasData = allEvents.length > 0;
   emptyState.style.display = hasData ? 'none' : 'block';
-  clearBtn.style.display = hasData ? 'inline-block' : 'none';
+  clearBtn.style.display = hasData ? 'block' : 'none';
 
   if(!hasData){
     listRoot.innerHTML = '';
@@ -3452,9 +3749,15 @@ fileInput.addEventListener('change', e => {
 
 clearBtn.addEventListener('click', () => {
   if(confirm(`Clear all events on "${activeSheetName}"?`)) clearActiveSheetEvents();
+  moreMenuPopover.classList.remove('open');
 });
 
-function handleSearchChange(){
+let searchRenderTimer = null;
+
+// The cheap part — collapsed-section bookkeeping and the × button's
+// visibility — runs on every keystroke immediately, since it's just
+// state tracking with no real cost.
+function updateSearchModeState(){
   const hasQuery = !!searchInput.value.trim();
   if(hasQuery && !searchModeActive){
     savedCollapsedSections = new Set(collapsedSections);
@@ -3466,12 +3769,33 @@ function handleSearchChange(){
     searchModeActive = false;
   }
   searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
+}
+
+// The expensive part — actually filtering/re-rendering — is debounced.
+// Cross-sheet fuzzy search re-scans and re-parses every event across
+// every sheet on each call; on a realistic large dataset that measured
+// ~300ms, which running on every single keystroke while still typing
+// makes typing itself feel laggy. Waiting for a brief pause means only
+// the query you actually finished typing pays that cost.
+function handleSearchChange(){
+  updateSearchModeState();
+  clearTimeout(searchRenderTimer);
+  searchRenderTimer = setTimeout(render, 180);
+}
+
+// Deliberate single actions (clearing the box, clicking a suggestion)
+// bypass the debounce entirely — there's no rapid-typing burst to wait
+// out, so waiting 180ms here would just feel like unnecessary lag.
+function applySearchImmediately(){
+  clearTimeout(searchRenderTimer);
+  updateSearchModeState();
   render();
 }
+
 searchInput.addEventListener('input', handleSearchChange);
 searchClearBtn.addEventListener('click', () => {
   searchInput.value = '';
-  handleSearchChange();
+  applySearchImmediately();
   searchInput.focus();
 });
 
@@ -3580,6 +3904,22 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Clears every price section in one click instead of removing rows one
+  // by one — meant for when you're about to re-log fresh section/price
+  // info and don't want the old values getting in the way.
+  const resetBtn = e.target.closest('[data-action="reset-sections"]');
+  if(resetBtn){
+    const key = resetBtn.dataset.key;
+    const ann = getAnnotation(key);
+    if(ann.sections.length && confirm(`Clear all ${ann.sections.length} section${ann.sections.length === 1 ? '' : 's'} for this event?`)){
+      pushUndo();
+      ann.sections = [];
+      saveNotesSoon();
+      render();
+    }
+    return;
+  }
+
   // Expand/collapse the note-history timeline inside the open panel.
   const historyToggle = e.target.closest('[data-action="toggle-history"]');
   if(historyToggle){
@@ -3606,6 +3946,26 @@ listRoot.addEventListener('click', async e => {
   const insightsTarget = e.target.closest('[data-action="insights"]');
   if(insightsTarget){
     openInsightsModal(insightsTarget.dataset.key);
+    return;
+  }
+
+  // Jump from a cross-sheet search result into that event's actual home
+  // sheet for normal editing — clears the search rather than trying to
+  // keep a "scoped" search state, since that's simpler and more
+  // predictable than juggling two different search modes.
+  const gotoBtn = e.target.closest('[data-action="goto-sheet"]');
+  if(gotoBtn){
+    const sheetName = gotoBtn.dataset.sheet;
+    searchInput.value = '';
+    updateSearchModeState();
+    if(sheets.some(s => s.name === sheetName)) setActiveSheet(sheetName);
+    return;
+  }
+
+  const suggestionBtn = e.target.closest('.did-you-mean-btn');
+  if(suggestionBtn){
+    searchInput.value = suggestionBtn.dataset.suggestion;
+    applySearchImmediately();
     return;
   }
 
@@ -3760,7 +4120,6 @@ window.addEventListener('beforeunload', () => { saveNotesNow(); });
 
 async function initApp(){
   applyColumnCount();
-  applyTheme('dark');
   if(DEFAULT_SYNC_URL){
     syncUrl = DEFAULT_SYNC_URL;
     syncUrlInput.value = syncUrl;
