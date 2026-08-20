@@ -295,14 +295,19 @@
   .select-check{
     position:absolute;top:10px;left:10px;z-index:5;
     width:22px;height:22px;border-radius:50%;
-    border:2px solid rgba(255,255,255,.5);background:rgba(0,0,0,.35);
+    border:2px solid rgba(255,255,255,.6);background:rgba(20,20,24,.85);
     cursor:pointer;padding:0;
+    box-shadow:0 2px 6px rgba(0,0,0,.4);
   }
   .select-check.checked{background:var(--teal);border-color:var(--teal);}
   .select-check.checked::after{
     content:"";position:absolute;top:5px;left:7px;width:5px;height:9px;
     border:solid #0d211f;border-width:0 2px 2px 0;transform:rotate(45deg);
   }
+  /* The checkbox floats over the top-left corner — give the header
+     content room to start clear of it instead of sitting underneath. */
+  .ticket:has(.select-check) .ticket-header-row .dn-merged-date{padding-left:40px;}
+  .shift-block:has(.select-check) .shift-block-main{padding-left:26px;}
   .ticket.kb-selected, .shift-block.kb-selected{
     outline:2px solid var(--teal);outline-offset:-1px;
   }
@@ -425,23 +430,7 @@
     padding:2px 7px;border-radius:4px;
   }
 
-  .perf{
-    position:relative;
-    width:0;
-    border-left:2px dashed var(--dash);
-    flex:0 0 auto;
-    margin-top:10px;
-  }
-  .perf::before,.perf::after{
-    content:"";
-    position:absolute;left:50%;
-    width:16px;height:16px;
-    background:var(--card);
-    border-radius:50%;
-    transform:translateX(-50%);
-  }
-  .perf::before{top:-9px;}
-  .perf::after{bottom:-9px;}
+
 
   .ticket-actions{
     flex:0 0 auto;
@@ -856,6 +845,19 @@
   .drop-zone.drag{border-color:var(--amber);background:rgba(242,193,78,.05);}
 
   .no-results{color:var(--muted);font-size:14px;padding:40px 0;text-align:center;}
+  .az-jump-bar{
+    display:flex;flex-wrap:wrap;gap:4px;
+    padding:10px 0 14px;margin-bottom:4px;border-bottom:1px solid var(--hairline);
+  }
+  .az-jump-btn{
+    width:26px;height:26px;flex:0 0 auto;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
+    border-radius:6px;border:1px solid var(--hairline);background:transparent;color:var(--text);
+    cursor:pointer;transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .az-jump-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.08);}
+  .az-jump-btn:disabled{color:var(--muted);opacity:.3;cursor:default;}
+  .az-jump-btn:disabled:hover{border-color:var(--hairline);background:transparent;}
   .did-you-mean-btn{
     margin-top:10px;background:transparent;border:1px dashed var(--teal);color:var(--teal);
     font-family:'Inter',sans-serif;font-size:13px;padding:6px 14px;border-radius:8px;cursor:pointer;
@@ -892,9 +894,6 @@
     .shift-block .ticket-actions{min-width:0;}
     .day-grid{grid-template-columns:1fr;}
     .ticket-main{flex-direction:column;}
-    .perf{border-left:none;border-top:2px dashed var(--dash);width:auto;height:0;}
-    .perf::before{top:auto;left:-9px;bottom:-9px;}
-    .perf::after{left:auto;right:-9px;bottom:-9px;top:auto;}
     .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
     .link-row{flex:1 1 30%;}
 
@@ -972,7 +971,7 @@
       </div>
       <select class="sort-select" id="sortSelect" title="Sort">
         <option value="upload">As uploaded</option>
-        <option value="date">By date</option>
+        <option value="date" selected>By date</option>
         <option value="venue">By venue</option>
         <option value="name">By name</option>
         <option value="rating">By rating</option>
@@ -986,14 +985,13 @@
         <button class="col-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
         <button class="col-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
       </div>
-      <div class="col-stepper" title="Expand / collapse all sections">
-        <button class="col-btn" id="expandAllBtn" type="button" aria-label="Expand all sections" title="Expand all sections">▾</button>
-        <button class="col-btn" id="collapseAllBtn" type="button" aria-label="Collapse all sections" title="Collapse all sections">▸</button>
-      </div>
+      <button class="filter-btn" id="expandAllBtn" type="button" title="Expand every collapsed section">⌄ Expand all</button>
+      <button class="filter-btn" id="collapseAllBtn" type="button" title="Collapse every section for easier scrolling">⌃ Collapse all</button>
       <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">⭐ Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="filter-btn" id="archiveFilterBtn" title="Show archived events instead of hiding them">📦 Archive</button>
-      <button class="btn ghost" id="selectModeBtn" title="Select cards to delete, like picking photos to delete on a phone">🗑 Select</button>
+      <button class="btn ghost" id="selectModeBtn" title="Select cards to archive or delete, like picking photos on a phone">🗑 Select</button>
+      <button class="btn ghost" id="confirmArchiveBtn" style="display:none;" disabled>Archive</button>
       <button class="btn danger" id="confirmDeleteBtn" style="display:none;" disabled>Delete</button>
       <button class="btn primary" id="uploadBtn" title="Adds to THIS sheet — merges in, refreshes matches, skips duplicates. Use + above instead to start a separate new sheet.">Add CSV</button>
       <input type="file" id="fileInput" accept=".csv">
@@ -1136,6 +1134,7 @@ const expandAllBtn = $('#expandAllBtn');
 const collapseAllBtn = $('#collapseAllBtn');
 const markSeenBtn = $('#markSeenBtn');
 const selectModeBtn = $('#selectModeBtn');
+const confirmArchiveBtn = $('#confirmArchiveBtn');
 const confirmDeleteBtn = $('#confirmDeleteBtn');
 const eyebrowLabel = $('#eyebrowLabel');
 const emptyIcon = $('#emptyIcon');
@@ -1211,7 +1210,7 @@ let sheets = []; // [{name, mode}] — identity is the sheet's name, matching ho
 let pendingEmptySheets = []; // sheets created locally that have no pushed rows yet, so a poll doesn't make them vanish
 let draggedSheetName = null; // tracks the tab currently being dragged for reordering
 let activeSheetName = null;
-let sortMode = 'upload'; // 'date' | 'upload' — standard-mode sheets only; US Open always groups by date
+let sortMode = 'date'; // 'date' | 'upload' | 'venue' | 'name' | 'rating' — standard-mode sheets only; US Open always groups by date
 let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections, archived, noteHistory} — used on every sheet, any mode
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let noteSnapshotOnOpen = null; // ann.note captured when the panel opened, so closing can tell if it actually changed
@@ -1362,6 +1361,9 @@ markSeenBtn.addEventListener('click', () => { markAllSeen(); moreMenuPopover.cla
 function updateSelectModeUI(){
   selectModeBtn.textContent = selectMode ? 'Cancel' : '🗑 Select';
   selectModeBtn.classList.toggle('active', selectMode);
+  confirmArchiveBtn.style.display = selectMode ? 'inline-block' : 'none';
+  confirmArchiveBtn.textContent = `Archive${selectedKeys.size ? ` (${selectedKeys.size})` : ''}`;
+  confirmArchiveBtn.disabled = selectedKeys.size === 0;
   confirmDeleteBtn.style.display = selectMode ? 'inline-block' : 'none';
   confirmDeleteBtn.textContent = `Delete${selectedKeys.size ? ` (${selectedKeys.size})` : ''}`;
   confirmDeleteBtn.disabled = selectedKeys.size === 0;
@@ -1392,6 +1394,20 @@ function toggleCardSelection(key, shiftKey){
   updateSelectModeUI();
   render();
 }
+
+// No passcode needed here — unlike delete, archiving is fully reversible
+// (the individual per-card Archive button already works this way).
+confirmArchiveBtn.addEventListener('click', async () => {
+  if(!selectedKeys.size) return;
+  pushUndo();
+  selectedKeys.forEach(k => { getAnnotation(k).archived = true; });
+  selectMode = false;
+  selectedKeys = new Set();
+  lastSelectedKey = null;
+  updateSelectModeUI();
+  render();
+  await pushActiveSheetToRemote();
+});
 
 confirmDeleteBtn.addEventListener('click', async () => {
   if(!selectedKeys.size) return;
@@ -2987,7 +3003,6 @@ function cardHtmlSearchResult(ev, ann){
             <div class="ev-name">${escapeHtml(ev.name)}</div>
             <div class="ev-venue">${escapeHtml(ev.venue)}</div>
           </div>
-          <div class="perf"></div>
           <div class="ticket-actions">
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
           </div>
@@ -3043,6 +3058,25 @@ function renderSearchResults(query){
   listRoot.innerHTML = html;
 }
 
+// A-Z jump strip shown above the list when headings are alphabetically
+// sorted (by name or venue) — clicking a letter scrolls straight to the
+// first heading starting with it, similar to a contacts app. Letters
+// with nothing to jump to are shown disabled rather than hidden, so the
+// strip's shape stays predictable.
+function azJumpBarHtml(groups){
+  const available = new Set();
+  groups.forEach(g => {
+    const first = (g.heading || '').trim().charAt(0).toUpperCase();
+    if(first) available.add(/[A-Z]/.test(first) ? first : '#');
+  });
+  const letters = ['#', ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('')];
+  const buttons = letters.map(l => {
+    const has = available.has(l);
+    return `<button type="button" class="az-jump-btn" data-letter="${l}" ${has ? '' : 'disabled'}>${l}</button>`;
+  }).join('');
+  return `<div class="az-jump-bar">${buttons}</div>`;
+}
+
 function renderStandard(){
   const query = searchInput.value.trim().toLowerCase();
   const hasData = allEvents.length > 0;
@@ -3089,6 +3123,9 @@ function renderStandard(){
   // the column count is actually used — otherwise each 1-card group got
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
+  if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
+    htmlParts.push(azJumpBarHtml(groups));
+  }
   if(pinned.length){
     htmlParts.push(`${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid">${pinned.map(cardHtmlStandard).join('')}</div>`);
   }
@@ -3235,7 +3272,6 @@ function cardHtmlStandard(ev){
             <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
             <div class="ev-venue">${escapeHtml(ev.venue)}</div>
           </div>
-          <div class="perf"></div>
           <div class="ticket-actions">
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
           </div>
@@ -3845,6 +3881,27 @@ listRoot.addEventListener('click', async e => {
     if(collapsedSections.has(key)) collapsedSections.delete(key);
     else collapsedSections.add(key);
     heading.classList.toggle('collapsed');
+    return;
+  }
+
+  const azBtn = e.target.closest('.az-jump-btn');
+  if(azBtn){
+    if(azBtn.disabled) return;
+    const letter = azBtn.dataset.letter;
+    const headings = Array.from(listRoot.querySelectorAll('.day-heading[data-section]'));
+    const target = headings.find(h => {
+      const first = (h.dataset.section || '').trim().charAt(0).toUpperCase();
+      return letter === '#' ? !/[A-Z]/.test(first) : first === letter;
+    });
+    if(target){
+      // Expand it first if it happened to be collapsed, so jumping there
+      // actually shows something instead of landing on a closed heading.
+      if(target.classList.contains('collapsed')){
+        collapsedSections.delete(target.dataset.section);
+        target.classList.remove('collapsed');
+      }
+      target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
     return;
   }
 
