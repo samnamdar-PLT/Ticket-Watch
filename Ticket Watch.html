@@ -412,7 +412,7 @@
     display:flex;
     flex-direction:column;
     gap:4px;
-    justify-content:center;
+    justify-content:flex-start;
   }
   .ev-name{
     font-size:var(--f-name);font-weight:700;color:var(--teal);
@@ -447,7 +447,7 @@
     flex-direction:column;
     gap:4px;
     padding:var(--pad-card);
-    justify-content:center;
+    justify-content:flex-start;
     min-width:var(--minw-actions);
   }
   .link-row{display:flex;gap:4px;}
@@ -981,8 +981,7 @@
         <button class="col-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
         <button class="col-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
       </div>
-      <button class="filter-btn" id="expandAllBtn" type="button" title="Expand every collapsed section">⌄ Expand all</button>
-      <button class="filter-btn" id="collapseAllBtn" type="button" title="Collapse every section for easier scrolling">⌃ Collapse all</button>
+      <button class="filter-btn" id="expandCollapseBtn" type="button" title="Toggle every section open or closed">⌃ Collapse all</button>
       <button class="filter-btn" id="hotFilterBtn" title="Show rated events only" style="display:none;">⭐ Rated only</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="filter-btn" id="archiveFilterBtn" title="Show archived events instead of hiding them">📦 Archive</button>
@@ -1126,8 +1125,7 @@ const newFilterBtn = $('#newFilterBtn');
 const archiveFilterBtn = $('#archiveFilterBtn');
 const undoBtn = $('#undoBtn');
 const redoBtn = $('#redoBtn');
-const expandAllBtn = $('#expandAllBtn');
-const collapseAllBtn = $('#collapseAllBtn');
+const expandCollapseBtn = $('#expandCollapseBtn');
 const markSeenBtn = $('#markSeenBtn');
 const selectModeBtn = $('#selectModeBtn');
 const confirmArchiveBtn = $('#confirmArchiveBtn');
@@ -1208,6 +1206,17 @@ let draggedSheetName = null; // tracks the tab currently being dragged for reord
 let activeSheetName = null;
 let sortMode = 'date'; // 'date' | 'upload' | 'venue' | 'name' | 'rating' — standard-mode sheets only; US Open always groups by date
 let annotations = {}; // eventKey -> {note, rating (0-5), pinned, sections, archived, noteHistory} — used on every sheet, any mode
+// Cross-sheet search editing support: when a search result belongs to a
+// sheet other than the active one, its live (possibly-edited) event +
+// annotation + which sheet it came from lives here instead of in
+// `annotations`, since `annotations` is scoped to the active sheet only.
+// Map<eventKey, {ev, ann, sheetName}>. Built incrementally (never wiped
+// wholesale while search is active) so an in-progress edit survives the
+// re-render that follows every keystroke/toggle.
+let searchAnnotationsMap = null;
+// Sheet names with a cross-sheet edit pending a save. Flushed by
+// saveNotesNow() alongside the normal active-sheet push.
+let dirtySheets = new Set();
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let noteSnapshotOnOpen = null; // ann.note captured when the panel opened, so closing can tell if it actually changed
 let historyExpandedKeys = new Set(); // keys whose note-history list is currently expanded
@@ -1327,14 +1336,28 @@ clearPastBtn.addEventListener('click', () => { clearPastEvents(); moreMenuPopove
 undoBtn.addEventListener('click', () => { undo(); });
 redoBtn.addEventListener('click', () => { redo(); });
 
-expandAllBtn.addEventListener('click', () => {
-  collapsedSections.clear();
+// One button that does the opposite of whatever state it's currently in:
+// if anything is collapsed, it expands everything; if everything is
+// already expanded, it collapses everything. Label stays in sync via
+// updateExpandCollapseBtnLabel(), called after every render() (including
+// when a single heading gets clicked directly, not just from this button).
+expandCollapseBtn.addEventListener('click', () => {
+  if(collapsedSections.size > 0){
+    collapsedSections.clear();
+  } else {
+    listRoot.querySelectorAll('.collapsible-heading').forEach(el => collapsedSections.add(el.dataset.section));
+  }
   render();
 });
-collapseAllBtn.addEventListener('click', () => {
-  listRoot.querySelectorAll('.collapsible-heading').forEach(el => collapsedSections.add(el.dataset.section));
-  render();
-});
+function updateExpandCollapseBtnLabel(){
+  if(collapsedSections.size > 0){
+    expandCollapseBtn.textContent = '⌄ Expand all';
+    expandCollapseBtn.title = 'Expand every collapsed section';
+  } else {
+    expandCollapseBtn.textContent = '⌃ Collapse all';
+    expandCollapseBtn.title = 'Collapse every section for easier scrolling';
+  }
+}
 
 async function markAllSeen(){
   const anyNew = allEvents.some(ev => getAnnotation(eventKey(ev)).isNew);
@@ -1674,24 +1697,17 @@ async function pollRemote(){
 // Pushes the currently-loaded sheet's events (with notes/rating/pin/prices
 // merged in) to the Sheet. The response is the full authoritative dataset,
 // so remoteCache is refreshed from it directly — no separate local write.
-async function pushActiveSheetToRemote(){
+async function pushSheetEvents(sheetName, mode, payloadEvents){
   if(!syncUrl){
     setSyncStatus('Not connected — this change was not saved.', 'error');
     return;
   }
-  const name = activeSheetName;
-  if(!name) return;
-  const mode = activeSheetMode();
-  const payloadEvents = allEvents.map(ev => {
-    const ann = getAnnotation(eventKey(ev));
-    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [] };
-  });
   pendingPushCount++;
   try{
     const res = await fetch(syncUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids a CORS preflight Apps Script can't answer
-      body: JSON.stringify({ action: 'replaceSheet', appSheet: name, sheetMode: mode, events: payloadEvents })
+      body: JSON.stringify({ action: 'replaceSheet', appSheet: sheetName, sheetMode: mode, events: payloadEvents })
     });
     const data = await res.json();
     if(data && Array.isArray(data.events)) remoteCache = data.events;
@@ -1702,6 +1718,36 @@ async function pushActiveSheetToRemote(){
   }finally{
     pendingPushCount = Math.max(0, pendingPushCount - 1);
   }
+}
+
+async function pushActiveSheetToRemote(){
+  const name = activeSheetName;
+  if(!name) return;
+  const mode = activeSheetMode();
+  const payloadEvents = allEvents.map(ev => {
+    const ann = getAnnotation(eventKey(ev));
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [] };
+  });
+  await pushSheetEvents(name, mode, payloadEvents);
+}
+
+// Saves an edit made to a cross-sheet search result back to the sheet it
+// actually lives on. replaceSheet replaces a tab's rows wholesale, so
+// this rebuilds that sheet's FULL current row list from remoteCache
+// (not just the matched subset visible in search) and overlays any
+// live edit sitting in searchAnnotationsMap on top — otherwise saving
+// would silently wipe out every other event on that tab.
+async function pushCrossSheetEventEdit(sheetName){
+  const mode = (remoteSheetsList.find(s => s.name === sheetName) || {}).mode || 'standard';
+  const rows = remoteCache.filter(r => r.appSheet === sheetName);
+  const payloadEvents = rows.map(r => {
+    const key = eventKey(r);
+    const live = searchAnnotationsMap && searchAnnotationsMap.has(key) ? searchAnnotationsMap.get(key) : null;
+    const ev = live ? live.ev : r;
+    const ann = live ? live.ann : { note: r.note, rating: r.rating, pinned: r.pinned, sections: r.sections, isNew: r.isNew, archived: r.archived, noteHistory: r.noteHistory, priceHistory: r.priceHistory };
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [] };
+  });
+  await pushSheetEvents(sheetName, mode, payloadEvents);
 }
 
 async function pushSheetRename(oldName, newName){
@@ -2209,12 +2255,31 @@ async function redo(){
 }
 
 // Reads/creates the {note, rating, pinned, sections, isNew, archived,
-// noteHistory} record for one event. Used on every sheet, regardless of mode.
+// noteHistory} record for one event. Used on every sheet, regardless of
+// mode. A key not on the active sheet (e.g. a cross-sheet search result)
+// falls through to searchAnnotationsMap instead of being treated as a
+// brand-new local event — otherwise editing a search result would create
+// a phantom annotation nobody ever saves.
 function getAnnotation(key){
-  if(!annotations[key]){
-    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false, archived: false, noteHistory: [], priceHistory: [] };
+  if(annotations.hasOwnProperty(key)) return annotations[key];
+  if(searchAnnotationsMap && searchAnnotationsMap.has(key)){
+    const entry = searchAnnotationsMap.get(key);
+    dirtySheets.add(entry.sheetName);
+    return entry.ann;
   }
+  annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false, archived: false, noteHistory: [], priceHistory: [] };
   return annotations[key];
+}
+
+// Finds the actual event object for a key, checking the active sheet
+// first and falling back to a cross-sheet search result — mirrors
+// getAnnotation's fallback so link edits work the same way notes/rating/
+// prices do for search results.
+function findEventByKey(key){
+  const inActive = allEvents.find(x => eventKey(x) === key);
+  if(inActive) return inActive;
+  if(searchAnnotationsMap && searchAnnotationsMap.has(key)) return searchAnnotationsMap.get(key).ev;
+  return null;
 }
 
 async function saveEventsToActiveSheet(events){
@@ -2271,19 +2336,31 @@ async function clearActiveSheetEvents(){
   await pushActiveSheetToRemote();
 }
 
-// Removes a single event (and its note/rating/pin/prices) from the
-// active sheet.
+// Removes a single event (and its note/rating/pin/prices) — from the
+// active sheet normally, or from its actual home sheet if it's a
+// cross-sheet search result.
 async function deleteSingleEvent(key){
-  const ev = allEvents.find(e => eventKey(e) === key);
-  if(!ev) return;
+  const inActive = allEvents.find(e => eventKey(e) === key);
+  if(inActive){
+    const ok = await requestDeletePasscode();
+    if(!ok) return;
+    pushUndo();
+    allEvents = allEvents.filter(e => eventKey(e) !== key);
+    delete annotations[key];
+    if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
+    render();
+    await pushActiveSheetToRemote();
+    return;
+  }
+  if(!searchAnnotationsMap || !searchAnnotationsMap.has(key)) return;
+  const entry = searchAnnotationsMap.get(key);
   const ok = await requestDeletePasscode();
   if(!ok) return;
-  pushUndo();
-  allEvents = allEvents.filter(e => eventKey(e) !== key);
-  delete annotations[key];
+  searchAnnotationsMap.delete(key);
+  remoteCache = remoteCache.filter(r => eventKey(r) !== key);
   if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
   render();
-  await pushActiveSheetToRemote();
+  await pushCrossSheetEventEdit(entry.sheetName);
 }
 
 // Bulk-clears events dated before today (midnight boundary) — today's
@@ -2314,6 +2391,14 @@ function saveNotesSoon(){
 async function saveNotesNow(){
   clearTimeout(saveNotesTimer);
   await pushActiveSheetToRemote();
+  if(dirtySheets.size){
+    const toPush = Array.from(dirtySheets);
+    dirtySheets.clear();
+    for(const sheetName of toPush){
+      if(sheetName === activeSheetName) continue; // already covered above
+      await pushCrossSheetEventEdit(sheetName);
+    }
+  }
 }
 
 // ---------- Keyboard navigation ----------
@@ -2327,6 +2412,7 @@ let selectedIndex = -1;
 let navigableKeys = [];
 
 function refreshNavigation(){
+  updateExpandCollapseBtnLabel();
   navigableKeys = Array.from(listRoot.querySelectorAll('.ticket[data-key], .shift-block[data-key]')).map(el => el.dataset.key);
   if(selectedKey && navigableKeys.includes(selectedKey)){
     selectedIndex = navigableKeys.indexOf(selectedKey);
@@ -2977,75 +3063,30 @@ function renderPresale(){
     html += `${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid" ${colStyle}>${pinned.map(cardHtmlPresale).join('')}</div>`;
   }
   const now = new Date();
-  groupByPresaleOrShowDate(rest).forEach(g => {
+  // Sort dropdown now actually applies here, same as every other sheet —
+  // 'date' keeps the presale-specific "group by drop time" behavior
+  // (falling back to show-date grouping when no presale times are set),
+  // since that's the one presale-only grouping worth keeping; the other
+  // modes reuse the exact same grouping functions renderStandard uses.
+  const groups = sortMode === 'upload' ? groupByUploadOrder(rest)
+    : sortMode === 'venue' ? groupByVenue(rest)
+    : sortMode === 'name' ? groupByName(rest)
+    : sortMode === 'rating' ? groupByRating(rest)
+    : groupByPresaleOrShowDate(rest);
+  if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
+    html += azJumpBarHtml(groups);
+  }
+  groups.forEach(g => {
     const firstEv = g.events[0];
     const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
     if(g.showHeading){
-      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '');
+      const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys);
     }
     html += `<div class="day-grid" ${colStyle}>${g.events.map(cardHtmlPresale).join('')}</div>`;
   });
 
   listRoot.innerHTML = html;
-}
-
-// A sheet's icon for the little badge on each cross-sheet search result —
-// same icons used on the actual sheet tabs, so it reads consistently.
-function sheetIconFor(mode){
-  return mode === 'usopen' ? '🎾' : mode === 'presale' ? '🎫' : '🎟️';
-}
-
-// Read-focused card for cross-sheet search results: full ticket links
-// (fully functional — no sheet context needed to open/copy a URL) and a
-// read-only summary of notes/rating/prices, styled to match the normal
-// card layout everywhere else. The sheet badge in the header doubles as
-// the way to jump into that event's home sheet (click it) — deliberately
-// not editable in place, since safely routing a save back to whichever
-// sheet each result actually lives in is a bigger change than this pass.
-function cardHtmlSearchResult(ev, ann){
-  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
-  const buttons = [
-    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
-    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
-    linkRow(ev.stubLink, 'StubHub', 'site-stub')
-  ].filter(Boolean).join('');
-
-  const previewBits = [];
-  if(ann.rating > 0) previewBits.push(`<span class="preview-rating">⭐${ann.rating}</span>`);
-  if(ann.note && ann.note.trim()){
-    const short = ann.note.trim().length > 60 ? ann.note.trim().slice(0, 60) + '…' : ann.note.trim();
-    previewBits.push(`<span class="note-preview-text">${escapeHtml(short)}</span>`);
-  }
-  const priced = (ann.sections || []).filter(s => s.label && s.label.trim() && s.price && s.price.trim());
-  const chipsHtml = priced.length ? `<div class="price-preview-row">${priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label)}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price))}</span></span>`).join('')}</div>` : '';
-  // Same "notes-preview" look every other card uses (no "+" prompt when
-  // empty, since there's nothing to click here — this is read-only).
-  const previewHtml = (previewBits.length || chipsHtml)
-    ? `<div class="notes-preview">${previewBits.length ? `<div class="notes-preview-topline">${previewBits.join('')}</div>` : ''}${chipsHtml}</div>`
-    : '';
-
-  return `
-    <div class="ticket search-result-card">
-      <div class="ticket-header-row">
-        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
-        <div class="ticket-toolbar">
-          <span class="sheet-badge sheet-badge-link" data-action="goto-sheet" data-sheet="${escapeHtml(ev.__sheet)}" title="Go to ${escapeHtml(ev.__sheet)}">${sheetIconFor(ev.__mode)} ${escapeHtml(ev.__sheet)}</span>
-          ${ann.pinned ? '<span class="search-pin-flag" title="Pinned">📌</span>' : ''}
-        </div>
-      </div>
-      <div class="ticket-body">
-        <div class="ticket-main">
-          <div class="ticket-info">
-            <div class="ev-name">${escapeHtml(ev.name)}</div>
-            <div class="ev-venue">${escapeHtml(ev.venue)}</div>
-          </div>
-          <div class="ticket-actions">
-            ${buttons || '<span class="no-links">No ticket links yet</span>'}
-          </div>
-        </div>
-        ${previewHtml}
-      </div>
-    </div>`;
 }
 
 // When nothing matches, offers the single closest event name (by edit
@@ -3068,14 +3109,31 @@ function searchNoResultsHtml(query, allSearchableEvents){
 
 // Searching combines every sheet into one result set — the point being
 // you shouldn't have to remember which sheet you filed something under
-// to find it again. Full read access; edits happen after jumping into
-// the result's home sheet (see cardHtmlSearchResult).
+// to find it again. Cards render identically to every other sheet
+// (cardHtmlStandard) and are fully editable in place: notes, rating,
+// prices, pin, links, archive, delete all work the same as anywhere
+// else, saving back to whichever sheet that result actually lives on
+// (see getAnnotation/findEventByKey's cross-sheet fallback and
+// pushCrossSheetEventEdit).
 function renderSearchResults(query){
   emptyState.style.display = 'none';
   clearBtn.style.display = 'none';
 
   const { events, annotationsMap } = buildEventsAndAnnotations(remoteCache);
-  const matched = events.filter(ev => matchesSearch(ev, query, annotationsMap[eventKey(ev)] || getAnnotation(eventKey(ev))));
+
+  // Merge-only: add newly-seen events, never overwrite an entry already
+  // here, since that entry might hold an in-progress edit this same
+  // render cycle triggered (every keystroke/toggle re-renders while
+  // search stays active). Cleared only when the search box empties.
+  if(!searchAnnotationsMap) searchAnnotationsMap = new Map();
+  events.forEach(ev => {
+    const key = eventKey(ev);
+    if(!searchAnnotationsMap.has(key)){
+      searchAnnotationsMap.set(key, { ev, ann: annotationsMap[key], sheetName: ev.__sheet });
+    }
+  });
+
+  const matched = events.filter(ev => matchesSearch(ev, query, searchAnnotationsMap.get(eventKey(ev)).ann));
 
   countLabel.textContent = `${matched.length} match${matched.length === 1 ? '' : 'es'} across all sheets`;
 
@@ -3087,8 +3145,9 @@ function renderSearchResults(query){
   const cols = Math.min(columnCount, 4); // search cards carry more info per card, same reasoning as presale
   let html = '';
   groupByName(matched).forEach(g => {
-    html += dayHeadingHtml(g.heading);
-    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => cardHtmlSearchResult(ev, annotationsMap[eventKey(ev)] || getAnnotation(eventKey(ev)))).join('')}</div>`;
+    const pinKeys = g.events.map(ev => eventKey(ev));
+    html += dayHeadingHtml(g.heading, '', pinKeys);
+    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => cardHtmlStandard(searchAnnotationsMap.get(eventKey(ev)).ev)).join('')}</div>`;
   });
   listRoot.innerHTML = html;
 }
@@ -3949,6 +4008,11 @@ function updateSearchModeState(){
     collapsedSections = savedCollapsedSections ? new Set(savedCollapsedSections) : new Set();
     savedCollapsedSections = null;
     searchModeActive = false;
+    // Any cross-sheet edit made while searching should already be saved
+    // by now (each edit debounce-saves on its own) — this just drops the
+    // scratch map so the next search rebuilds fresh from remoteCache
+    // instead of carrying stale entries forward indefinitely.
+    searchAnnotationsMap = null;
   }
   searchClearBtn.style.display = searchInput.value ? 'flex' : 'none';
 }
@@ -4041,6 +4105,7 @@ listRoot.addEventListener('click', async e => {
     if(collapsedSections.has(key)) collapsedSections.delete(key);
     else collapsedSections.add(key);
     heading.classList.toggle('collapsed');
+    updateExpandCollapseBtnLabel();
     return;
   }
 
@@ -4314,10 +4379,13 @@ listRoot.addEventListener('input', e => {
   const linkInput = e.target.closest('.presale-link-input');
   if(linkInput){
     const key = linkInput.dataset.key;
-    const field = linkInput.dataset.field; // 'primaryLink' | 'vividLink' | 'stubLink'
-    const ev = allEvents.find(x => eventKey(x) === key);
+    const field = linkInput.dataset.field; // 'primaryLink' | 'vividLink' | 'stubLink' | 'code' | 'publicSaleDateStr'
+    const ev = findEventByKey(key);
     if(ev){
       ev[field] = linkInput.value;
+      if(!allEvents.includes(ev) && searchAnnotationsMap && searchAnnotationsMap.has(key)){
+        dirtySheets.add(searchAnnotationsMap.get(key).sheetName);
+      }
       saveNotesSoon();
     }
     return;
