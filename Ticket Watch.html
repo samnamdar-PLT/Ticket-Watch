@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ticket Watch</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpolygon points='12,2 22,21 2,21' fill='%23e34848'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -274,6 +275,14 @@
   .day-heading.collapsible-heading.collapsed .collapse-caret{transform:rotate(-90deg);}
   .day-heading.collapsible-heading.collapsed + .day-grid{display:none;}
   .day-heading.collapsible-heading.collapsed{padding-bottom:10px;margin-bottom:2px;border-bottom:1px dashed var(--hairline);}
+  .heading-pin-btn{
+    margin-left:auto;flex:0 0 auto;
+    width:26px;height:26px;border-radius:6px;border:1px solid transparent;
+    background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;
+  }
+  .heading-pin-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
+  .heading-pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
   .pinned-grid{margin-bottom:18px;}
 
   .ticket{
@@ -621,11 +630,6 @@
   }
   .price-formatted:empty{display:none;}
   .price-row input:focus{border-color:var(--teal);}
-  .price-updated{
-    flex:0 1 60px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .price-updated:empty{display:none;flex-basis:0;}
   .price-remove{
     flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;
     border-radius:5px;border:1px solid transparent;background:transparent;color:var(--muted);
@@ -870,17 +874,9 @@
     background:var(--card-hover);border:1px solid var(--hairline);border-radius:5px;
     padding:3px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;
   }
+  .sheet-badge-link{cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;}
+  .sheet-badge-link:hover{background:rgba(79,200,191,.12);border-color:var(--teal);color:var(--teal);}
   .search-pin-flag{font-size:12px;flex:0 0 auto;}
-  .search-result-preview{cursor:default;}
-  .search-result-preview:hover{background:rgba(255,255,255,.012);}
-  .go-to-sheet-btn{
-    display:block;width:calc(100% - 28px);margin:10px 14px 12px;
-    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
-    padding:7px 10px;border-radius:6px;text-align:center;
-    border:1px solid var(--teal);background:transparent;color:var(--teal);
-    cursor:pointer;transition:background .15s ease;
-  }
-  .go-to-sheet-btn:hover{background:rgba(79,200,191,.1);}
 
   /* ============================================================
      MOBILE + TABLET — everything below is scoped to max-width
@@ -925,7 +921,7 @@
     /* Bigger touch targets throughout — 32px icon buttons are fine for a
        mouse cursor but tight for a fingertip. */
     .select-check{width:28px;height:28px;}
-    .go-to-sheet-btn, .panel-archive-btn, .panel-delete-btn{padding:10px;}
+    .panel-archive-btn, .panel-delete-btn{padding:10px;}
     .rating-star{width:32px;height:32px;}
     .price-chip{padding:8px 6px;}
 
@@ -1576,7 +1572,7 @@ function buildEventsAndAnnotations(rows){
   const annotationsMap = {};
   rows.forEach((ev, idx) => {
     const key = eventKey(events[idx]);
-    annotationsMap[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew, archived: !!ev.archived, noteHistory: ev.noteHistory || [] };
+    annotationsMap[key] = { note: ev.note || '', rating: ev.rating || 0, pinned: !!ev.pinned, sections: ev.sections || [], isNew: !!ev.isNew, archived: !!ev.archived, noteHistory: ev.noteHistory || [], priceHistory: ev.priceHistory || [] };
   });
   return { events, annotationsMap };
 }
@@ -1688,7 +1684,7 @@ async function pushActiveSheetToRemote(){
   const mode = activeSheetMode();
   const payloadEvents = allEvents.map(ev => {
     const ann = getAnnotation(eventKey(ev));
-    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [] };
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: !!ann.pinned, sections: ann.sections || [], isNew: !!ann.isNew, archived: !!ann.archived, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [] };
   });
   pendingPushCount++;
   try{
@@ -2216,7 +2212,7 @@ async function redo(){
 // noteHistory} record for one event. Used on every sheet, regardless of mode.
 function getAnnotation(key){
   if(!annotations[key]){
-    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false, archived: false, noteHistory: [] };
+    annotations[key] = { note: '', rating: 0, pinned: false, sections: [], isNew: false, archived: false, noteHistory: [], priceHistory: [] };
   }
   return annotations[key];
 }
@@ -2821,10 +2817,22 @@ function groupByVenue(events){
 
 // Sorts alphabetically by event/artist name — a flat A-Z list, no
 // grouping headings, since event names are rarely repeated the way
-// venues are.
+// venues are. Groups at the ARTIST level (via coreArtistName), not exact
+// title, so "5 Seconds of Summer" and "5 Seconds of Summer: EVERYONE'S A
+// STAR! World Tour" land under one heading instead of two — the same
+// artist can't be in two places at once, so differing tour subtitles
+// shouldn't split the listing.
+//
+// Safety net: that same "can't be in two places at once" logic also means
+// a proposed merge is WRONG if it would combine events happening at the
+// same date/time in different venues — that's proof they're not actually
+// the same act (e.g. two different NFL preseason games that both happen
+// to start with "Preseason Game 2:"). When a core-name bucket contains
+// such a conflict, it's split back apart by exact name instead of merged,
+// rather than risk conflating two unrelated events under one heading.
 function groupByName(events){
   const sorted = [...events].sort((a, b) => {
-    const na = (a.name || '').toLowerCase(), nb = (b.name || '').toLowerCase();
+    const na = coreArtistName(a.name).toLowerCase(), nb = coreArtistName(b.name).toLowerCase();
     const cmp = na.localeCompare(nb);
     if(cmp !== 0) return cmp;
     if(!a.dateObj && !b.dateObj) return 0;
@@ -2832,16 +2840,38 @@ function groupByName(events){
     if(!b.dateObj) return -1;
     return new Date(a.dateObj) - new Date(b.dateObj);
   });
-  const groups = [];
-  let currentKey = null, currentGroup = null;
+
+  // First pass: bucket by core name so we can check each bucket for a
+  // same-date/different-venue conflict before committing to the merge.
+  const buckets = new Map();
   sorted.forEach(ev => {
-    const key = (ev.name && ev.name.trim()) ? ev.name.trim() : 'Untitled event';
-    if(key !== currentKey){
-      currentKey = key;
-      currentGroup = { heading: key, showHeading: true, showTodayTag: false, events: [] };
-      groups.push(currentGroup);
+    const rawName = (ev.name && ev.name.trim()) ? ev.name.trim() : 'Untitled event';
+    const core = coreArtistName(rawName) || rawName;
+    const key = core.toLowerCase();
+    if(!buckets.has(key)) buckets.set(key, { core, events: [] });
+    buckets.get(key).events.push(ev);
+  });
+
+  const groups = [];
+  buckets.forEach(bucket => {
+    const conflict = bucket.events.some((a, i) =>
+      bucket.events.some((b, j) => i !== j && a.dateObj && a.dateObj === b.dateObj && (a.venue || '') !== (b.venue || ''))
+    );
+    if(conflict){
+      // Split this bucket back into its exact-name subgroups rather than
+      // merge unrelated same-tagged events under one heading.
+      const byExact = new Map();
+      bucket.events.forEach(ev => {
+        const rawName = (ev.name && ev.name.trim()) ? ev.name.trim() : 'Untitled event';
+        if(!byExact.has(rawName)) byExact.set(rawName, []);
+        byExact.get(rawName).push(ev);
+      });
+      byExact.forEach((evs, heading) => {
+        groups.push({ heading, showHeading: true, showTodayTag: false, events: evs });
+      });
+    } else {
+      groups.push({ heading: bucket.core, showHeading: true, showTodayTag: false, events: bucket.events });
     }
-    currentGroup.events.push(ev);
   });
   return groups;
 }
@@ -2938,8 +2968,10 @@ function renderPresale(){
     return;
   }
 
-  const presaleCols = Math.min(columnCount, 3);
-  const colStyle = `style="--cols:${presaleCols};"`;
+  // Presale cards are now the same compact size as every other sheet's
+  // cards, so they use the same global column count — no more special
+  // 3-column cap (that was sized for the old always-expanded card).
+  const colStyle = '';
   let html = '';
   if(pinned.length){
     html += `${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid" ${colStyle}>${pinned.map(cardHtmlPresale).join('')}</div>`;
@@ -2964,13 +2996,12 @@ function sheetIconFor(mode){
 }
 
 // Read-focused card for cross-sheet search results: full ticket links
-// (fully functional — no sheet context needed to open/copy a URL), a
-// read-only summary of notes/rating/prices, and a "Go to sheet" jump
-// that switches you into that event's home sheet with the same search
-// still applied, landing you right on it for normal editing. Deliberately
-// not editable in place — safely routing a save back to whichever sheet
-// each result actually lives in is a bigger change than this pass, and a
-// working jump is a lot safer than a half-built cross-sheet write path.
+// (fully functional — no sheet context needed to open/copy a URL) and a
+// read-only summary of notes/rating/prices, styled to match the normal
+// card layout everywhere else. The sheet badge in the header doubles as
+// the way to jump into that event's home sheet (click it) — deliberately
+// not editable in place, since safely routing a save back to whichever
+// sheet each result actually lives in is a bigger change than this pass.
 function cardHtmlSearchResult(ev, ann){
   const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
   const buttons = [
@@ -2987,13 +3018,18 @@ function cardHtmlSearchResult(ev, ann){
   }
   const priced = (ann.sections || []).filter(s => s.label && s.label.trim() && s.price && s.price.trim());
   const chipsHtml = priced.length ? `<div class="price-preview-row">${priced.map(s => `<span class="price-preview-chip"><b>${escapeHtml(s.label)}</b><span class="price-preview-value">${escapeHtml(formatPriceDisplay(s.price))}</span></span>`).join('')}</div>` : '';
+  // Same "notes-preview" look every other card uses (no "+" prompt when
+  // empty, since there's nothing to click here — this is read-only).
+  const previewHtml = (previewBits.length || chipsHtml)
+    ? `<div class="notes-preview">${previewBits.length ? `<div class="notes-preview-topline">${previewBits.join('')}</div>` : ''}${chipsHtml}</div>`
+    : '';
 
   return `
     <div class="ticket search-result-card">
       <div class="ticket-header-row">
         ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
         <div class="ticket-toolbar">
-          <span class="sheet-badge" title="Found on: ${escapeHtml(ev.__sheet)}">${sheetIconFor(ev.__mode)} ${escapeHtml(ev.__sheet)}</span>
+          <span class="sheet-badge sheet-badge-link" data-action="goto-sheet" data-sheet="${escapeHtml(ev.__sheet)}" title="Go to ${escapeHtml(ev.__sheet)}">${sheetIconFor(ev.__mode)} ${escapeHtml(ev.__sheet)}</span>
           ${ann.pinned ? '<span class="search-pin-flag" title="Pinned">📌</span>' : ''}
         </div>
       </div>
@@ -3007,8 +3043,7 @@ function cardHtmlSearchResult(ev, ann){
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
           </div>
         </div>
-        ${previewBits.length || chipsHtml ? `<div class="notes-preview search-result-preview">${previewBits.length ? `<div class="notes-preview-topline">${previewBits.join('')}</div>` : ''}${chipsHtml}</div>` : ''}
-        <button type="button" class="go-to-sheet-btn" data-action="goto-sheet" data-sheet="${escapeHtml(ev.__sheet)}">Go to ${escapeHtml(ev.__sheet)} →</button>
+        ${previewHtml}
       </div>
     </div>`;
 }
@@ -3141,7 +3176,11 @@ function renderStandard(){
     const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
     if(g.showHeading){
       flushGrid();
-      htmlParts.push(dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : ''));
+      // Group-level pin only makes sense for artist/venue "category"
+      // headings (Name/Venue sort) — a date heading like "Friday, April
+      // 3" isn't a category to pin the way an artist or venue is.
+      const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+      htmlParts.push(dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys));
     }
     g.events.forEach(ev => pendingCards.push(cardHtmlStandard(ev)));
   });
@@ -3185,22 +3224,30 @@ function presaleLinkRowHtml(key, label, field, value, placeholder){
     </div>`;
 }
 
+// Compact grid card for the Presale sheet — same layout every other
+// sheet uses (click to expand notes), plus a small code/public-sale badge
+// under the venue so that's visible without opening the card, and a
+// "Presale info" section inside the expanded panel (see notesPanelHtml)
+// for adding/editing the code and public sale date.
 function cardHtmlPresale(ev){
   const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
+  const buttons = [
+    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
+    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
+    linkRow(ev.stubLink, 'StubHub', 'site-stub')
+  ].filter(Boolean).join('');
   const key = eventKey(ev);
   const ann = getAnnotation(key);
+  const isOpen = key === openNotesKey;
   const isSelected = selectMode && selectedKeys.has(key);
-  const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
-  const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
-    + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
 
   const metaBits = [];
-  if(ev.code && ev.code.trim()) metaBits.push(`<span class="presale-meta-item">Code <b>${escapeHtml(ev.code)}</b><button type="button" class="copy-btn presale-code-copy" data-href="${escapeHtml(ev.code)}" title="Copy code"><svg class="icon-copy" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="icon-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button></span>`);
+  if(ev.code && ev.code.trim()) metaBits.push(`<span class="presale-meta-item">Code <b>${escapeHtml(ev.code)}</b></span>`);
   if(ev.publicSaleDateStr && ev.publicSaleDateStr.trim()) metaBits.push(`<span class="presale-meta-item">Public sale ${escapeHtml(formatCompactDateTime(ev.publicSaleDateStr))}</span>`);
   const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
 
   return `
-    <div class="ticket presale-card ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="ticket-header-row">
         ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
@@ -3211,33 +3258,18 @@ function cardHtmlPresale(ev){
           </button>
         </div>
       </div>
-      <div class="ticket-body presale-body">
-        <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
-        <div class="ev-venue">${escapeHtml(ev.venue)}</div>
-        ${metaRow}
-
-        <p class="notes-label">Ticket links</p>
-        <div class="presale-links">
-          ${presaleLinkRowHtml(key, 'TM', 'primaryLink', ev.primaryLink, 'Paste Ticketmaster / presale link')}
-          ${presaleLinkRowHtml(key, 'Vivid', 'vividLink', ev.vividLink, 'Paste VividSeats link')}
-          ${presaleLinkRowHtml(key, 'Stub', 'stubLink', ev.stubLink, 'Paste StubHub link')}
+      <div class="ticket-body">
+        <div class="ticket-main">
+          <div class="ticket-info">
+            <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
+            <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+            ${metaRow}
+          </div>
+          <div class="ticket-actions">
+            ${buttons || '<span class="no-links">No ticket links yet</span>'}
+          </div>
         </div>
-
-        <p class="notes-label">Rating</p>
-        ${ratingRowHtml(key, ann.rating)}
-
-        <p class="notes-label">Notes</p>
-        <textarea class="notes-textarea presale-notes" placeholder="Sections to target, seating notes, anything worth remembering — this stays open, no need to click in." data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
-        ${noteHistoryHtml(key, ann)}
-
-        <p class="notes-label">Sections &amp; prices</p>
-        <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
-        <div class="price-chips">${chips}</div>
-
-        <div class="panel-action-row">
-          <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
-          <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete</button>
-        </div>
+        ${isOpen ? notesPanelHtml(key, ann, ev, true) : notesPreviewHtml(ann, key)}
       </div>
     </div>`;
 }
@@ -3328,10 +3360,25 @@ function buildDateRows(dayEvents, nightEvents){
   return Array.from(map.values()).sort((a,b) => a.sortValue - b.sortValue);
 }
 
-const QUICK_LABELS = ['Floor', 'Mezz', '100s', '200s', '300s', '400s'];
+const QUICK_LABELS = ['Floor', 'Mezz', 'Lowers', 'Uppers', 'Pits', 'Lawns', 'Best Seats', '100s', '200s', '300s', '400s'];
+// Modifiers combine with whichever section chip gets clicked next — e.g.
+// toggle "Center" then click "+ Floor" to get "Center Floor" in one step,
+// instead of adding "Floor" and hand-editing the text afterward.
+const MODIFIER_LABELS = ['Center', 'Off Center', 'Primos', 'Back Bowl'];
+let activeModifier = '';
 
 // Precise 1-5 flame selector shown inside the open notes panel. Clicking
 // the flame that's already the current rating clears it back to 0.
+// Toggleable modifier row shown above the section chips — clicking one
+// combines it into whichever section chip gets clicked next ("Center" +
+// "+ Floor" → "Center Floor"), instead of needing a hand-edit afterward.
+function modifierChipsHtml(){
+  const chips = MODIFIER_LABELS.map(m =>
+    `<button type="button" class="modifier-chip ${activeModifier === m ? 'active' : ''}" data-modifier="${escapeHtml(m)}">${escapeHtml(m)}</button>`
+  ).join('');
+  return `<div class="modifier-chips">${chips}</div>`;
+}
+
 function ratingRowHtml(key, rating){
   let stars = '';
   for(let i = 1; i <= 5; i++){
@@ -3358,11 +3405,56 @@ function formatPriceDisplay(raw){
   return '$' + formatted;
 }
 
+// Prefixes that LOOK like a colon-split "artist: subtitle" pattern but
+// are actually a generic ticket-inventory/category tag, not an act name
+// — e.g. "Club Level Seating: J. Cole" and "Club Level Seating: Daniel
+// Caesar" are two totally different artists that happen to share a
+// seating-tier label, not the same artist under two tour names. Splitting
+// on these would silently merge unrelated shows under one misleading
+// heading, so they're excluded from the split rather than guessed at.
+// Not exhaustive by design — new categories can be added here as they
+// surface; the failure mode of missing one is "doesn't merge a real
+// match" (safe), not "merges two different acts" (unsafe).
+const NON_ARTIST_CORE_PREFIXES = [
+  'club level seating', 'club level', 'half price', 'general admission',
+  'standing room', 'floor seats', 'group seating', 'season tickets',
+  'single game', 'parking pass', 'parking', 'vip package', 'vip packages',
+  'meet & greet', 'meet and greet', 'suite', 'suites'
+];
+
+// Strips a trailing subtitle/tour-name off an event name, e.g.
+// "5 Seconds of Summer: EVERYONE'S A STAR! World Tour" -> "5 Seconds of
+// Summer". The same artist can't play two venues at once, so two listings
+// whose core name matches are the same artist even when their full titles
+// differ — this is the grouping key used for both the list view
+// (groupByName) and the Insights modal (normalizeShowName), so both stay
+// consistent with each other.
+function coreArtistName(name){
+  const s = (name || '').trim();
+  if(!s) return s;
+  // Split on the first colon, or the first " - "/" – "/" — " (spaced
+  // hyphen/en-dash/em-dash — NOT a bare hyphen, so hyphenated artist names
+  // like "Ari Lennox" or "Post Malone" style dashes inside a word are left
+  // alone). Take the segment before it.
+  const m = s.match(/^(.*?)(?:\s*:\s*|\s+[-–—]\s+)/);
+  const core = m ? m[1].trim() : s;
+  // If what's before the split is a generic category tag rather than an
+  // act name, don't split at all — return the full original title so
+  // this listing groups on its own exact name instead of merging with
+  // unrelated shows that happen to share the same tag.
+  if(NON_ARTIST_CORE_PREFIXES.includes(core.toLowerCase())) return s;
+  return core;
+}
+
 // Groups "Hell's Kitchen (Touring)" with "Hell's Kitchen" and other minor
 // punctuation/casing variants of the same show name, without needing an
-// exact character-for-character match.
+// exact character-for-character match. Also collapses differing tour
+// subtitles ("Benson Boone" vs "Benson Boone: Wanted Man Tour") down to
+// the shared artist name via coreArtistName, since the same artist isn't
+// two different shows just because two listings phrased the title
+// differently.
 function normalizeShowName(name){
-  return (name || '')
+  return (coreArtistName(name) || '')
     .toLowerCase()
     .replace(/\(touring\)/g, '')
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -3534,13 +3626,11 @@ function notesPreviewHtml(ann, key){
 }
 
 function priceRowHtml(key, row){
-  const updated = row.updatedAt ? new Date(row.updatedAt).toLocaleString('en-US', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
   return `
     <div class="price-row" data-row-id="${row.id}">
       <input type="text" class="price-label" placeholder="Section (e.g. Floor)" value="${escapeHtml(row.label)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="label">
       <input type="text" class="price-value" placeholder="Price" value="${escapeHtml(row.price)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="price">
       <span class="price-formatted" data-formatted-for="${row.id}">${escapeHtml(formatPriceDisplay(row.price))}</span>
-      <span class="price-updated">${updated}</span>
       <button type="button" class="price-remove" data-key="${escapeHtml(key)}" data-row="${row.id}" title="Remove row">×</button>
     </div>`;
 }
@@ -3565,7 +3655,30 @@ function noteHistoryHtml(key, ann){
     ${expanded ? `<div class="history-list">${list}</div>` : ''}`;
 }
 
-function notesPanelHtml(key, ann, ev){
+// Mirrors noteHistoryHtml — shown once a section gets removed (or Reset
+// clears them all), so the price you logged doesn't just vanish the
+// moment you delete the row. Uses the same expand/collapse Set as note
+// history, namespaced with ':price' so the two toggle independently.
+function priceHistoryHtml(key, ann){
+  if(!ann.priceHistory || !ann.priceHistory.length) return '';
+  const historyKey = key + ':price';
+  const expanded = historyExpandedKeys.has(historyKey);
+  let list = '';
+  if(expanded){
+    list = [...ann.priceHistory].reverse().map(h => {
+      const d = new Date(h.removedAt);
+      const when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+      const label = (h.label || '').trim() || '(unlabeled)';
+      const priceText = (h.price || '').trim() ? formatPriceDisplay(h.price) : '(no price)';
+      return `<div class="history-entry"><div class="history-date">${escapeHtml(when)}</div><div class="history-text">${escapeHtml(label)} — ${escapeHtml(priceText)}</div></div>`;
+    }).join('');
+  }
+  return `
+    <button type="button" class="history-toggle" data-action="toggle-price-history" data-key="${escapeHtml(key)}">${expanded ? '▾' : '▸'} Price history (${ann.priceHistory.length})</button>
+    ${expanded ? `<div class="history-list">${list}</div>` : ''}`;
+}
+
+function notesPanelHtml(key, ann, ev, showPresaleFields = false){
   const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
   const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
     + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
@@ -3581,25 +3694,51 @@ function notesPanelHtml(key, ann, ev){
         ${presaleLinkRowHtml(key, 'Stub', 'stubLink', ev.stubLink, 'Paste StubHub link')}
       </div>
     </div>` : '';
+  // Presale-only editable fields — a code to remember and when general
+  // public sale opens. Reuses the same .presale-link-input plumbing
+  // (generic data-field write straight onto the event) as the ticket
+  // links above, just with different field names.
+  const presaleFieldsHtml = (showPresaleFields && ev) ? `
+    <div class="panel-section">
+      <p class="notes-label">🎟️ Presale info</p>
+      <div class="presale-links">
+        <div class="presale-link-row">
+          <span class="presale-link-label">Code</span>
+          <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="code" value="${escapeHtml(ev.code || '')}" placeholder="Presale code">
+          ${ev.code && ev.code.trim() ? `<button type="button" class="copy-btn presale-copy" data-href="${escapeHtml(ev.code)}" title="Copy code">
+            <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>` : '<span class="presale-link-empty-spacer"></span>'}
+        </div>
+        <div class="presale-link-row">
+          <span class="presale-link-label">Public sale</span>
+          <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="publicSaleDateStr" value="${escapeHtml(ev.publicSaleDateStr || '')}" placeholder="e.g. Fri, Sep 12, 10:00 AM">
+          <span class="presale-link-empty-spacer"></span>
+        </div>
+      </div>
+    </div>` : '';
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
-      ${linksHtml}
+      ${presaleFieldsHtml}
       <div class="panel-section">
-        <p class="notes-label">⭐ Rating</p>
-        ${ratingRowHtml(key, ann.rating)}
-      </div>
-      <div class="panel-section">
-        <p class="notes-label">📝 Notes</p>
-        <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
-        ${noteHistoryHtml(key, ann)}
-      </div>
-      <div class="panel-section panel-section-last">
         <div class="notes-label-row">
           <p class="notes-label">💰 Sections &amp; prices</p>
           ${ann.sections.length ? `<button type="button" class="reset-sections-btn" data-action="reset-sections" data-key="${escapeHtml(key)}" title="Clear every section so you can start over">↺ Reset</button>` : ''}
         </div>
         <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
+        ${modifierChipsHtml()}
         <div class="price-chips">${chips}</div>
+        ${priceHistoryHtml(key, ann)}
+      </div>
+      ${linksHtml}
+      <div class="panel-section">
+        <p class="notes-label">⭐ Rating</p>
+        ${ratingRowHtml(key, ann.rating)}
+      </div>
+      <div class="panel-section panel-section-last">
+        <p class="notes-label">📝 Notes</p>
+        <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
+        ${noteHistoryHtml(key, ann)}
       </div>
       <div class="panel-action-row">
         <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
@@ -3752,12 +3891,19 @@ function renderUsOpen(){
 // very next .day-grid via an adjacent-sibling rule. The section key is
 // just the heading text — unique within a given render in every case
 // this app produces one.
-function dayHeadingHtml(label, extraHtml = ''){
+function dayHeadingHtml(label, extraHtml = '', pinKeys = null){
   const key = label;
   const collapsed = collapsedSections.has(key);
+  let pinBtn = '';
+  if(pinKeys && pinKeys.length){
+    const allPinned = pinKeys.every(k => getAnnotation(k).pinned);
+    pinBtn = `<button type="button" class="icon-btn heading-pin-btn ${allPinned ? 'active' : ''}" data-action="pin-group" data-keys="${escapeHtml(JSON.stringify(pinKeys))}" title="${allPinned ? 'Unpin this group' : 'Pin this whole group to top'}">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="${allPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+    </button>`;
+  }
   return `<div class="day-heading collapsible-heading ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
     <svg class="collapse-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
-    <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}
+    <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}${pinBtn}
   </div>`;
 }
 
@@ -3875,6 +4021,20 @@ listRoot.addEventListener('click', async e => {
   // Toggle a section open/closed. Pure DOM manipulation here (no full
   // render) — the CSS adjacent-sibling rule does the actual hiding, so
   // toggling is instant and doesn't disturb scroll position elsewhere.
+  // Checked BEFORE the collapsible-heading toggle below, since the
+  // group-pin button lives inside the heading and would otherwise also
+  // trigger a collapse/expand on the same click.
+  const pinGroupBtn = e.target.closest('[data-action="pin-group"]');
+  if(pinGroupBtn){
+    let keys = [];
+    try { keys = JSON.parse(pinGroupBtn.dataset.keys || '[]'); } catch(err) { keys = []; }
+    const allPinned = keys.length && keys.every(k => getAnnotation(k).pinned);
+    keys.forEach(k => { getAnnotation(k).pinned = !allPinned; });
+    saveNotesNow();
+    render();
+    return;
+  }
+
   const heading = e.target.closest('.collapsible-heading');
   if(heading){
     const key = heading.dataset.section;
@@ -3970,10 +4130,27 @@ listRoot.addEventListener('click', async e => {
     const ann = getAnnotation(key);
     if(ann.sections.length && confirm(`Clear all ${ann.sections.length} section${ann.sections.length === 1 ? '' : 's'} for this event?`)){
       pushUndo();
+      const removedAt = new Date().toISOString();
+      const toArchive = ann.sections.filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
+      if(toArchive.length){
+        if(!ann.priceHistory) ann.priceHistory = [];
+        toArchive.forEach(s => ann.priceHistory.push({ label: s.label || '', price: s.price || '', removedAt }));
+        if(ann.priceHistory.length > 30) ann.priceHistory = ann.priceHistory.slice(-30);
+      }
       ann.sections = [];
       saveNotesSoon();
       render();
     }
+    return;
+  }
+
+  // Expand/collapse the price-history timeline, mirroring note history.
+  const priceHistoryToggle = e.target.closest('[data-action="toggle-price-history"]');
+  if(priceHistoryToggle){
+    const historyKey = priceHistoryToggle.dataset.key + ':price';
+    if(historyExpandedKeys.has(historyKey)) historyExpandedKeys.delete(historyKey);
+    else historyExpandedKeys.add(historyKey);
+    render();
     return;
   }
 
@@ -4045,26 +4222,49 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Toggle a modifier (Center, Off Center, Primos, Back Bowl) — combines
+  // with whichever section chip gets clicked next. Only one active at a
+  // time, so clicking a different one swaps rather than stacking.
+  const modChip = e.target.closest('.modifier-chip');
+  if(modChip){
+    const mod = modChip.dataset.modifier;
+    const wasActive = modChip.classList.contains('active');
+    const container = modChip.closest('.modifier-chips');
+    if(container) container.querySelectorAll('.modifier-chip').forEach(c => c.classList.remove('active'));
+    activeModifier = wasActive ? '' : mod;
+    if(!wasActive) modChip.classList.add('active');
+    return;
+  }
+
   // Quick-add price chip (US Open mode)
   const chip = e.target.closest('.price-chip');
   if(chip){
     const key = chip.dataset.key;
-    const label = chip.dataset.label;
+    const isPreset = !!chip.dataset.label;
+    let label = chip.dataset.label;
+    const usedModifier = !!activeModifier;
+    if(activeModifier) label = isPreset ? `${activeModifier} ${label}` : `${activeModifier} `;
+    activeModifier = ''; // consumed either way — doesn't linger for the next unrelated click
     const ann = getAnnotation(key);
     const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7), label: label, price: '', updatedAt: null };
     ann.sections.push(row);
     saveNotesSoon();
     const rowsContainer = chip.closest('.ticket-body').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
     rowsContainer.insertAdjacentHTML('beforeend', priceRowHtml(key, row));
-    // A preset chip (Floor, 100 Level, etc.) already fills the label, so
-    // jump straight to the price field to type — only the blank-label
-    // Custom chip needs the label typed first.
-    if(label){
+    if(usedModifier){
+      const modContainer = chip.closest('.ticket-body').querySelector('.modifier-chips');
+      if(modContainer) modContainer.querySelectorAll('.modifier-chip').forEach(c => c.classList.remove('active'));
+    }
+    // A preset chip (Floor, 100s, etc.) already fills the label, so jump
+    // straight to the price field to type. A Custom chip needs the label
+    // finished first — if a modifier prefilled part of it ("Center "),
+    // land the cursor at the end so typing just continues it.
+    if(isPreset){
       const newValueInput = rowsContainer.querySelector(`[data-row="${row.id}"][data-field="price"]`);
       if(newValueInput) newValueInput.focus();
     } else {
       const newLabelInput = rowsContainer.querySelector(`[data-row="${row.id}"][data-field="label"]`);
-      if(newLabelInput) newLabelInput.focus();
+      if(newLabelInput){ newLabelInput.focus(); newLabelInput.setSelectionRange(newLabelInput.value.length, newLabelInput.value.length); }
     }
     return;
   }
@@ -4075,9 +4275,15 @@ listRoot.addEventListener('click', async e => {
     const key = removeBtn.dataset.key;
     const rowId = removeBtn.dataset.row;
     const ann = getAnnotation(key);
+    const removedRow = ann.sections.find(r => r.id === rowId);
     ann.sections = ann.sections.filter(r => r.id !== rowId);
+    if(removedRow && ((removedRow.label && removedRow.label.trim()) || (removedRow.price && removedRow.price.trim()))){
+      if(!ann.priceHistory) ann.priceHistory = [];
+      ann.priceHistory.push({ label: removedRow.label || '', price: removedRow.price || '', removedAt: new Date().toISOString() });
+      if(ann.priceHistory.length > 30) ann.priceHistory = ann.priceHistory.slice(-30);
+    }
     saveNotesSoon();
-    removeBtn.closest('.price-row').remove();
+    render();
     return;
   }
 
@@ -4127,17 +4333,25 @@ listRoot.addEventListener('input', e => {
     if(row){
       row[field] = priceField.value;
       row.updatedAt = new Date().toISOString();
-      const panel = priceField.closest('.ticket-body');
-      const stamp = panel.querySelector(`.price-row[data-row-id="${rowId}"] .price-updated`);
-      if(stamp){
-        stamp.textContent = new Date(row.updatedAt).toLocaleString('en-US', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'});
-      }
       if(field === 'price'){
+        const panel = priceField.closest('.ticket-body');
         const formattedEl = panel.querySelector(`.price-formatted[data-formatted-for="${rowId}"]`);
         if(formattedEl) formattedEl.textContent = formatPriceDisplay(row.price);
       }
       saveNotesSoon();
     }
+  }
+});
+
+// Pressing Enter in a price field is "I'm done with this one" — blur it
+// so the keyboard/focus ring goes away and it visually settles, rather
+// than sitting there focused with nothing to press.
+listRoot.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  const priceField = e.target.closest('.price-label, .price-value');
+  if(priceField){
+    e.preventDefault();
+    priceField.blur();
   }
 });
 
