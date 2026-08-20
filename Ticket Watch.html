@@ -86,7 +86,6 @@
   html[data-density="tiny"] .ticket-header-row{flex-wrap:wrap;row-gap:0;}
   html[data-density="tiny"] .ticket-header-row .dn-merged-date{flex:1 1 100%;padding-bottom:2px;}
   html[data-density="tiny"] .ticket-header-row .ticket-toolbar{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap;row-gap:2px;padding:0 6px 4px 14px;}
-  html[data-density="tiny"] .toolbar-icons-right{flex-wrap:wrap;row-gap:2px;}
 
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -353,12 +352,12 @@
   .shift-block.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
   .shift-block.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .shift-block.is-pinned{box-shadow:inset 0 0 0 1px var(--pin);}
-  .shift-block-toolbar{display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;}
+  .shift-block-toolbar{position:absolute;top:8px;right:10px;z-index:2;}
   .shift-block.shift-day .ev-time{color:var(--day-color);}
   .shift-block.shift-night .ev-time{color:var(--night-color);}
   .shift-block-icons{display:flex;gap:2px;}
   .shift-block-icons .icon-btn{width:calc(var(--icon-size) - 4px);height:calc(var(--icon-size) - 4px);}
-  .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-right:44px;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
   .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:var(--minw-actions);}
@@ -391,7 +390,6 @@
   .icon-btn.pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
   .icon-btn.delete-btn:hover{color:var(--coral);border-color:var(--coral);}
   .ticket-toolbar{justify-content:space-between;}
-  .toolbar-icons-right{display:flex;gap:2px;}
   .ticket-body{border-top:1px solid var(--hairline);display:flex;flex-direction:column;flex:1 1 auto;}
   .ticket-body .notes-preview{margin-top:auto;}
   .ticket-body:first-child{border-top:none;}
@@ -420,6 +418,8 @@
     line-height:1.3;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
+  .ev-name-clickable{cursor:pointer;}
+  .ev-name-clickable:hover{text-decoration:underline;text-decoration-color:rgba(79,200,191,.5);}
   .ev-venue{
     font-size:var(--f-venue);color:var(--text);opacity:.78;
     line-height:1.35;
@@ -567,6 +567,47 @@
     padding:7px 9px;outline:none;
   }
   .notes-textarea:focus{border-color:var(--teal);}
+
+  /* ---------- Presale cards ---------- */
+  /* Presale cards are capped at 3 columns (see renderPresale), so they
+     should always read at comfortable "normal" density regardless of
+     what the global column stepper is set to elsewhere in the app —
+     otherwise a high column count on another sheet would leave presale
+     cards stuck with tiny fonts despite having plenty of room. */
+  .presale-card{
+    --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:20px;
+    --f-link:12px; --minw-info:160px; --minw-actions:190px;
+    --copybtn-w:30px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
+  }
+  .presale-body{padding:12px 16px 14px;display:flex;flex-direction:column;gap:2px;}
+  .presale-body .ev-name{margin-bottom:2px;}
+  .presale-body .ev-venue{margin-bottom:2px;}
+  .presale-meta-row{display:flex;flex-wrap:wrap;gap:10px;margin:2px 0 4px;}
+  .presale-meta-item{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px;}
+  .presale-meta-item b{color:var(--amber);font-weight:700;}
+  .presale-code-copy{width:18px;height:18px;flex:0 0 auto;}
+  .presale-code-copy svg{width:10px;height:10px;}
+  .presale-links{display:flex;flex-direction:column;gap:6px;margin:4px 0 2px;}
+  .presale-link-row{display:flex;align-items:center;gap:6px;}
+  .presale-link-label{
+    flex:0 0 36px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em;
+  }
+  .presale-link-input{
+    flex:1 1 auto;min-width:0;
+    background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
+    color:var(--text);font-family:'Inter',sans-serif;font-size:12px;
+    padding:6px 8px;outline:none;
+  }
+  .presale-link-input:focus{border-color:var(--teal);}
+  .presale-link-open{
+    flex:0 0 auto;color:var(--teal);text-decoration:none;font-size:14px;
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  }
+  .presale-copy{flex:0 0 auto;width:26px;height:26px;}
+  .presale-link-empty-spacer{flex:0 0 48px;}
+  .presale-notes{min-height:90px;}
+
   .price-preview-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .price-preview-chip{
     display:inline-flex;flex-direction:column;align-items:flex-start;gap:0;flex:0 0 auto;
@@ -582,13 +623,13 @@
   .price-rows{display:flex;flex-direction:column;gap:6px;margin:10px 0 8px;}
   .price-row{display:flex;gap:6px;align-items:center;}
   .price-row input.price-label{
-    flex:1 1 40%;min-width:0;
+    flex:1 1 40%;min-width:44px;
     background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
     color:var(--text);font-family:'Inter',sans-serif;font-size:12px;
     padding:6px 8px;outline:none;
   }
   .price-row input.price-value{
-    flex:0 0 90px;
+    flex:0 0 90px;min-width:0;
     background:var(--bg);border:1px solid var(--hairline);border-radius:6px;
     color:var(--text);font-family:'Inter',sans-serif;font-weight:600;font-size:12.5px;
     padding:6px 8px;outline:none;
@@ -599,11 +640,13 @@
     border:1px solid var(--price-tag-border);border-radius:5px;
     padding:3px 8px;white-space:nowrap;min-width:52px;text-align:center;
   }
+  .price-formatted:empty{display:none;}
   .price-row input:focus{border-color:var(--teal);}
   .price-updated{
-    flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);
-    white-space:nowrap;min-width:78px;
+    flex:0 1 60px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
+  .price-updated:empty{display:none;flex-basis:0;}
   .price-remove{
     flex:0 0 auto;width:22px;height:22px;display:flex;align-items:center;justify-content:center;
     border-radius:5px;border:1px solid transparent;background:transparent;color:var(--muted);
@@ -722,11 +765,72 @@
   }
   .modal-checkbox input{margin-top:3px;flex:0 0 auto;accent-color:var(--amber);width:16px;height:16px;cursor:pointer;}
   .modal-checkbox-hint{color:var(--muted);font-size:12px;}
+  .sheet-type-options{display:flex;flex-direction:column;gap:8px;margin:6px 0 18px;}
+  .sheet-type-option{
+    display:flex;align-items:flex-start;gap:9px;
+    font-family:'Inter',sans-serif;font-size:13px;color:var(--text);
+    cursor:pointer;line-height:1.4;
+    padding:8px 10px;border-radius:8px;border:1px solid var(--hairline);
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .sheet-type-option:hover{border-color:var(--muted);}
+  .sheet-type-option:has(input:checked){border-color:var(--amber);background:rgba(242,193,78,.06);}
+  .sheet-type-option input{margin-top:3px;flex:0 0 auto;accent-color:var(--amber);width:15px;height:15px;cursor:pointer;}
+  .sheet-type-label{display:block;}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;}
   #deletePasscodeInput{
     font-size:22px;letter-spacing:10px;text-align:center;font-family:'IBM Plex Mono',monospace;
   }
   .passcode-error{color:var(--coral);font-size:12px;margin:-10px 0 14px;}
+
+  /* ---------- Insights modal ---------- */
+  .insights-modal{max-width:560px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
+  .insights-modal-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 20px 14px;border-bottom:1px solid var(--hairline);flex:0 0 auto;
+  }
+  .insights-modal-header .modal-title{margin:0;}
+  .insights-close-btn{
+    width:28px;height:28px;border-radius:6px;border:none;background:transparent;
+    color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
+  }
+  .insights-close-btn:hover{background:var(--card-hover);color:var(--text);}
+  .insights-modal-body{padding:16px 20px 20px;overflow-y:auto;flex:1 1 auto;}
+  .insights-summary{display:flex;flex-direction:column;gap:8px;margin-bottom:6px;}
+  .insights-stat{font-size:13px;color:var(--text);}
+  .insights-stat b{color:var(--amber);}
+  .insights-stat.is-new b{color:var(--coral);}
+  .insights-stat-sub{color:var(--muted);font-size:11.5px;}
+  .insights-shows-list{
+    display:flex;flex-direction:column;gap:4px;margin-bottom:4px;
+    max-height:140px;overflow-y:auto;
+  }
+  .insights-show-row{
+    display:flex;align-items:center;gap:8px;padding:5px 8px;
+    border-radius:6px;background:rgba(255,255,255,.02);font-size:12px;
+  }
+  .insights-show-date{font-family:'IBM Plex Mono',monospace;color:var(--text);flex:0 0 auto;}
+  .insights-show-venue{color:var(--muted);flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .insights-show-rating{color:var(--rating);font-size:11px;flex:0 0 auto;}
+  .insights-show-archived{flex:0 0 auto;opacity:.7;}
+  .insights-timeline-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;}
+  .insights-timeline-entry{
+    border-left:2px solid var(--hairline);padding-left:10px;
+  }
+  .insights-timeline-entry.is-current{border-left-color:var(--teal);}
+  .insights-timeline-meta{display:flex;gap:8px;align-items:baseline;margin-bottom:2px;}
+  .insights-timeline-when{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
+  .insights-timeline-show{font-size:10.5px;color:var(--muted);opacity:.8;}
+  .insights-timeline-text{font-size:12.5px;color:var(--text);white-space:pre-wrap;line-height:1.4;}
+  .insights-price-list{display:flex;flex-direction:column;gap:4px;}
+  .insights-price-row{
+    display:flex;align-items:center;gap:8px;padding:5px 8px;
+    border-radius:6px;background:rgba(255,255,255,.02);font-size:12.5px;
+  }
+  .insights-price-label{flex:1 1 auto;color:var(--text);font-weight:600;}
+  .insights-price-count{color:var(--muted);font-size:11px;flex:0 0 auto;}
+  .insights-price-range{color:var(--price-tag-text, #2e9e57);font-weight:700;flex:0 0 auto;}
+  .insights-empty{color:var(--muted);font-size:12.5px;font-style:italic;margin:2px 0;}
 
   /* ---------- Empty state ---------- */
   .empty{
@@ -866,10 +970,21 @@
     <h3 class="modal-title">New Sheet</h3>
     <p class="notes-label">Sheet name</p>
     <input type="text" id="newSheetNameInput" placeholder="e.g. Fall Tour">
-    <label class="modal-checkbox">
-      <input type="checkbox" id="newSheetUsOpenCheckbox">
-      <span>🎾 US Open sheet <span class="modal-checkbox-hint">— Day/Night columns, star/pin, price tracking, uploads always merge</span></span>
-    </label>
+    <p class="notes-label">Sheet type</p>
+    <div class="sheet-type-options">
+      <label class="sheet-type-option">
+        <input type="radio" name="newSheetType" value="standard" checked>
+        <span class="sheet-type-label">🎟️ Standard <span class="modal-checkbox-hint">— regular ticket list</span></span>
+      </label>
+      <label class="sheet-type-option">
+        <input type="radio" name="newSheetType" value="usopen">
+        <span class="sheet-type-label">🎾 US Open <span class="modal-checkbox-hint">— Day/Night columns, uploads always merge</span></span>
+      </label>
+      <label class="sheet-type-option">
+        <input type="radio" name="newSheetType" value="presale">
+        <span class="sheet-type-label">🎫 Presale <span class="modal-checkbox-hint">— fewer, richer cards: notes always open, ticket links editable inline</span></span>
+      </label>
+    </div>
     <div class="modal-actions">
       <button class="btn ghost" id="cancelAddSheetBtn" type="button">Cancel</button>
       <button class="btn primary" id="confirmAddSheetBtn" type="button">Create</button>
@@ -887,6 +1002,16 @@
       <button class="btn ghost" id="cancelDeletePasscodeBtn" type="button">Cancel</button>
       <button class="btn danger" id="confirmDeletePasscodeBtn" type="button">Delete</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="insightsModal" style="display:none;">
+  <div class="modal-box insights-modal">
+    <div class="insights-modal-header">
+      <h3 class="modal-title" id="insightsTitle">Show insights</h3>
+      <button type="button" class="insights-close-btn" id="closeInsightsBtn" aria-label="Close">×</button>
+    </div>
+    <div class="insights-modal-body" id="insightsBody"></div>
   </div>
 </div>
 
@@ -929,7 +1054,6 @@ const emptyHeading = $('#emptyHeading');
 const emptyBody = $('#emptyBody');
 const addSheetModal = $('#addSheetModal');
 const newSheetNameInput = $('#newSheetNameInput');
-const newSheetUsOpenCheckbox = $('#newSheetUsOpenCheckbox');
 const cancelAddSheetBtn = $('#cancelAddSheetBtn');
 const confirmAddSheetBtn = $('#confirmAddSheetBtn');
 const deletePasscodeModal = $('#deletePasscodeModal');
@@ -937,6 +1061,10 @@ const deletePasscodeInput = $('#deletePasscodeInput');
 const deletePasscodeError = $('#deletePasscodeError');
 const cancelDeletePasscodeBtn = $('#cancelDeletePasscodeBtn');
 const confirmDeletePasscodeBtn = $('#confirmDeletePasscodeBtn');
+const insightsModal = $('#insightsModal');
+const insightsTitle = $('#insightsTitle');
+const insightsBody = $('#insightsBody');
+const closeInsightsBtn = $('#closeInsightsBtn');
 const clearPastBtn = $('#clearPastBtn');
 const themeToggleBtn = $('#themeToggleBtn');
 
@@ -976,6 +1104,19 @@ confirmDeletePasscodeBtn.addEventListener('click', submitDeletePasscode);
 cancelDeletePasscodeBtn.addEventListener('click', () => closeDeletePasscodeModal(false));
 deletePasscodeModal.addEventListener('click', e => { if(e.target === deletePasscodeModal) closeDeletePasscodeModal(false); });
 deletePasscodeInput.addEventListener('keydown', e => { if(e.key === 'Enter') submitDeletePasscode(); });
+
+function openInsightsModal(key){
+  const insights = buildArtistInsights(key);
+  if(!insights) return;
+  insightsTitle.textContent = insights.name;
+  insightsBody.innerHTML = insightsBodyHtml(insights);
+  insightsModal.style.display = 'flex';
+}
+function closeInsightsModal(){
+  insightsModal.style.display = 'none';
+}
+closeInsightsBtn.addEventListener('click', closeInsightsModal);
+insightsModal.addEventListener('click', e => { if(e.target === insightsModal) closeInsightsModal(); });
 
 let allEvents = [];
 let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
@@ -1028,7 +1169,8 @@ function activeSheet(){
 }
 function activeSheetMode(){
   const s = activeSheet();
-  return (s && s.mode === 'usopen') ? 'usopen' : 'standard';
+  const m = s && s.mode;
+  return (m === 'usopen' || m === 'presale') ? m : 'standard';
 }
 
 // Reflects the active sheet's type in the header, empty-state copy, upload
@@ -1038,14 +1180,18 @@ function activeSheetMode(){
 function updateModeUI(){
   const mode = activeSheetMode();
   const isUsOpen = mode === 'usopen';
-  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : 'Ticket List';
+  const isPresale = mode === 'presale';
+  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : 'Ticket List';
   hotFilterBtn.style.display = 'inline-flex';
   sortSelect.style.display = isUsOpen ? 'none' : 'inline-block';
   uploadBtn.textContent = 'Add CSV';
-  emptyIcon.textContent = isUsOpen ? '🎾' : '🎟️';
+  emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : '🎟️';
   if(isUsOpen){
     emptyHeading.textContent = 'No sessions yet';
     emptyBody.textContent = 'Add a CSV to get started — sessions are grouped by venue, with each date\'s Day and Night sessions shown side by side. Every future upload adds on top of what\'s here; duplicates are skipped.';
+  } else if(isPresale){
+    emptyHeading.textContent = 'No presales yet';
+    emptyBody.textContent = 'Add a CSV to get started — presale cards show notes and price sections right on the card, and you can type or paste ticket links straight into the card as they become available. Every future upload merges in and refreshes matches.';
   } else {
     emptyHeading.textContent = 'This sheet is empty';
     emptyBody.textContent = 'Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.';
@@ -1288,14 +1434,15 @@ let remoteSheetsList = []; // [{name, mode}] straight from the backend, in real 
 // before their first upload.
 function rebuildSheetsFromCache(){
   let rebuilt;
+  const normalizeMode = m => (m === 'usopen' || m === 'presale') ? m : 'standard';
   if(remoteSheetsList.length){
-    rebuilt = remoteSheetsList.map(s => ({ name: s.name, mode: s.mode === 'usopen' ? 'usopen' : 'standard' }));
+    rebuilt = remoteSheetsList.map(s => ({ name: s.name, mode: normalizeMode(s.mode) }));
   } else {
     const order = [];
     const modeMap = {};
     remoteCache.forEach(ev => {
       if(!(ev.appSheet in modeMap)){
-        modeMap[ev.appSheet] = ev.sheetMode === 'usopen' ? 'usopen' : 'standard';
+        modeMap[ev.appSheet] = normalizeMode(ev.sheetMode);
         order.push(ev.appSheet);
       }
     });
@@ -1321,11 +1468,15 @@ function syncActiveSheetFromCache(){
   const rows = remoteCache.filter(ev => ev.appSheet === activeSheetName);
   allEvents = rows.map(ev => {
     const parsed = parseEventDate(ev.dateStr);
+    const presaleParsed = ev.presaleDateStr ? parseEventDate(ev.presaleDateStr) : null;
     return {
       name: ev.name, venue: ev.venue, dateStr: ev.dateStr,
       dateObj: parsed ? parsed.toISOString() : null,
       primarySite: ev.primarySite, primaryLink: ev.primaryLink,
-      vividLink: ev.vividLink, stubLink: ev.stubLink
+      vividLink: ev.vividLink, stubLink: ev.stubLink,
+      presaleDateStr: ev.presaleDateStr || '',
+      presaleDateObj: presaleParsed ? presaleParsed.toISOString() : null,
+      code: ev.code || '', publicSaleDateStr: ev.publicSaleDateStr || ''
     };
   });
   annotations = {};
@@ -1525,8 +1676,20 @@ function parseCSV(text){
   }
   if(field.length || row.length){ row.push(field); rows.push(row); }
   if(!rows.length) return { headers: [], dataRows: [] };
-  const headers = rows[0].map(h => h.trim());
-  const dataRows = rows.slice(1)
+
+  // Some exports have a fully blank row (or more than one) before the
+  // real header row — skip past those so the header row actually used is
+  // the first one with real content, instead of silently treating a
+  // blank row as "headers" and losing the real header row as if it were
+  // a garbage data row.
+  let headerRowIdx = 0;
+  while(headerRowIdx < rows.length && !rows[headerRowIdx].some(cell => cell && cell.trim())){
+    headerRowIdx++;
+  }
+  if(headerRowIdx >= rows.length) return { headers: [], dataRows: [] };
+
+  const headers = rows[headerRowIdx].map(h => h.trim());
+  const dataRows = rows.slice(headerRowIdx + 1)
     .filter(r => r.some(cell => cell && cell.trim()))
     .map(r => headers.map((_, idx) => (r[idx] !== undefined ? r[idx].trim() : '')));
   return { headers, dataRows };
@@ -1534,13 +1697,51 @@ function parseCSV(text){
 
 // Finds the column index matching any of the given header aliases
 // (case-insensitive, trimmed). Lets us support several CSV layouts.
-function findColumn(headers, aliases){
+function findColumn(headers, aliases, claimed){
+  claimed = claimed || [];
   const normalized = headers.map(h => (h || '').trim().toLowerCase());
+  // Exact match first — most precise, avoids e.g. a generic 'date' alias
+  // greedily matching the wrong one of several date-ish columns.
   for(const alias of aliases){
     const idx = normalized.indexOf(alias);
+    if(idx !== -1 && !claimed.includes(idx)) return idx;
+  }
+  // Substring fallback — catches header phrasing we haven't seen before
+  // ("Ticket URL" contains "url", "Event Link" contains "link") without
+  // needing every possible exact phrase enumerated up front.
+  for(const alias of aliases){
+    const idx = normalized.findIndex((h, i) => h.includes(alias) && !claimed.includes(i));
     if(idx !== -1) return idx;
   }
   return -1;
+}
+
+// Last-resort column detection when NO header naming convention matches
+// at all — scans actual cell values instead of header text. Given a
+// column index the caller has already claimed (so this never double-uses
+// a column two fields both want), returns whichever unclaimed column has
+// the highest hit-rate for the given per-cell test, or -1 if nothing
+// clears a reasonable bar (avoids confidently guessing wrong on a column
+// that's mostly not what we're looking for).
+function guessColumnByContent(dataRows, claimedIdxs, testFn){
+  if(!dataRows.length) return -1;
+  const colCount = dataRows[0].length;
+  const sample = dataRows.slice(0, 30); // enough rows to be confident, cheap enough to always do
+  let best = -1, bestScore = 0;
+  for(let c = 0; c < colCount; c++){
+    if(claimedIdxs.includes(c)) continue;
+    let hits = 0, total = 0;
+    sample.forEach(row => {
+      const v = row[c];
+      if(!v) return;
+      total++;
+      if(testFn(v)) hits++;
+    });
+    if(total === 0) continue;
+    const score = hits / total;
+    if(score > bestScore){ bestScore = score; best = c; }
+  }
+  return bestScore >= 0.5 ? best : -1; // require a real majority, not a fluke
 }
 
 // Guesses a ticket site name from a URL when no "Primary Site" column
@@ -1558,6 +1759,9 @@ function inferSiteFromUrl(url){
 
 function parseEventDate(str){
   if(!str) return null;
+  // "9:00PM" (no space before AM/PM) silently breaks native Date parsing
+  // entirely — normalize it before anything else touches the string.
+  str = str.replace(/(\d)(AM|PM)\b/i, '$1 $2');
 
   // e.g. "Mon, August 17, 2026at 11:00 AM"
   let m = str.match(/([A-Za-z]+),?\s+([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})\s*at\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -1582,12 +1786,38 @@ function parseEventDate(str){
     return inferYearedDate(parseInt(month,10), parseInt(day,10), h, parseInt(minute,10));
   }
 
+  // e.g. "Thu 12/3" or "Thu, 12/3" — no year AND no time at all. Native
+  // Date parsing "succeeds" on this but defaults to some ancient year
+  // (2001), which the sanity-bounded fallback below correctly rejects —
+  // so this needs its own pattern, same year-inference as above just
+  // without a time component.
+  m = str.match(/^[A-Za-z]+,?\s*(\d{1,2})\/(\d{1,2})\s*$/);
+  if(m){
+    const [, month, day] = m;
+    return inferYearedDate(parseInt(month,10), parseInt(day,10), 0, 0);
+  }
+
   // e.g. "2026-08-30T16:00:00.000Z" — Google Sheets auto-converts a
   // date-looking cell into a real date, and the sync backend returns that
   // as an ISO string, which won't match either pattern above.
   if(/^\d{4}-\d{2}-\d{2}T/.test(str)){
     const iso = new Date(str);
     if(!isNaN(iso.getTime())) return iso;
+  }
+
+  // Last resort: let the browser's own parser take a shot. This is what
+  // actually covers most real-world exports — "Thu, Aug 27, 2026 6:30 PM",
+  // "08/17/2026 11:00 AM", "8/19/2026, 7:00 AM EST" all parse correctly
+  // here even though none of them match the patterns above. A sanity
+  // bound on the year keeps this from misreading a bare number or a
+  // fragment as some wildly wrong date — and critically, a bare time with
+  // no date at all (e.g. "11:00 AM", used as a section-header row in some
+  // presale trackers) still correctly fails to parse, so those rows keep
+  // getting treated as section labels rather than fake events.
+  const fallback = new Date(str);
+  if(!isNaN(fallback.getTime())){
+    const year = fallback.getFullYear();
+    if(year >= 2015 && year <= 2035) return fallback;
   }
 
   return null;
@@ -1632,14 +1862,55 @@ function recordsFromCSV(text){
   const { headers, dataRows } = parseCSV(text);
   if(!headers.length) return [];
 
-  const nameIdx = findColumn(headers, ['event name', 'event', 'name']);
-  const sessionIdx = findColumn(headers, ['session']);
-  const venueIdx = findColumn(headers, ['venue']);
-  const dateIdx = findColumn(headers, ['date', 'date/time', 'event date']);
-  const primarySiteIdx = findColumn(headers, ['primary site', 'site']);
-  const primaryLinkIdx = findColumn(headers, ['primary link', 'tm link', 'ticketmaster link', 'link']);
-  const vividIdx = findColumn(headers, ['vividseats link', 'vivid link', 'vividseats', 'vivid']);
-  const stubIdx = findColumn(headers, ['stubhub link', 'stubhub']);
+  // Columns get "claimed" as they're matched so no two fields can grab
+  // the same column — without this, a generic alias like 'link' could
+  // steal the VividSeats column before vividIdx's own (more specific)
+  // match ever gets a chance at it.
+  const claimed = [];
+  const claim = idx => { if(idx !== -1) claimed.push(idx); return idx; };
+  const detect = aliases => claim(findColumn(headers, aliases, claimed));
+
+  let nameIdx = detect(['event name', 'event', 'name']);
+  const sessionIdx = detect(['session']);
+  let venueIdx = detect(['venue', 'city/venue', 'location']);
+  // Specific phrasings first — 'date' alone stays last since it's broad
+  // enough to risk matching "Presale Date" or "Public Sale Date" instead
+  // of the actual show date if it's checked too eagerly.
+  let dateIdx = detect(['date/time', 'event date', 'date of show', 'show date', 'date']);
+  const primarySiteIdx = detect(['primary site', 'site', 'buying from', 'ticket source']);
+  let primaryLinkIdx = detect(['primary link', 'tm link', 'ticketmaster link', 'event link', 'ticket url', 'link']);
+  const vividIdx = detect(['vividseats link', 'vivid link', 'vividseats', 'vivid seats link', 'vivid']);
+  const stubIdx = detect(['stubhub link', 'stubhub']);
+  // Presale-tracker-specific columns — all optional, all just enrich a
+  // normal event record rather than requiring a different code path.
+  const presaleDateIdx = detect(['presale date', 'presale date/time', 'presale date time', 'presale date/time (est)', 'presale date time (est)']);
+  const codeIdx = detect(['code', 'presale code']);
+  const whatToGoForIdx = detect(['what to go for', 'notes', 'note']);
+  const publicSaleIdx = detect(['public sale date', 'public sale date/time', 'public sale date time', 'public sale date/time (est)', 'public sale date time (est)']);
+
+  // Last resort when NO header wording matched at all — scan actual cell
+  // values instead. This is what makes upload genuinely format-agnostic
+  // rather than dependent on guessing every possible column name a sheet
+  // might use.
+  if(dateIdx === -1){
+    dateIdx = guessColumnByContent(dataRows, claimed, v => !!parseEventDate(v));
+    claim(dateIdx);
+  }
+  if(primaryLinkIdx === -1){
+    primaryLinkIdx = guessColumnByContent(dataRows, claimed, v => /^https?:\/\//i.test(v));
+    claim(primaryLinkIdx);
+  }
+  if(nameIdx === -1){
+    nameIdx = guessColumnByContent(dataRows, claimed, v => v.length > 2 && !/^https?:\/\//i.test(v) && isNaN(Number(v)));
+    claim(nameIdx);
+  }
+  if(venueIdx === -1){
+    // Venue values in these exports are reliably "Name, City, ST" — a
+    // comma is a decent signal once name/date/link have already claimed
+    // their columns, so this can't accidentally steal one of those.
+    venueIdx = guessColumnByContent(dataRows, claimed, v => v.includes(',') && !/^https?:\/\//i.test(v));
+    claim(venueIdx);
+  }
 
   let lastSection = ''; // tracks bare-name rows like "Arthur Ashe" or "Grounds Passes"
   const records = [];
@@ -1654,7 +1925,8 @@ function recordsFromCSV(text){
 
     if(!hasAnyLink && !parsedDate){
       // A row with no ticket link and nothing that parses as a date is a
-      // section/category label (e.g. "Arthur Ashe", "Grounds Passes"),
+      // section/category label (e.g. "Arthur Ashe", "Grounds Passes", or
+      // a bare drop-time header like "11:00 AM" in a presale tracker),
       // not an event — even if its lone value happens to sit in the same
       // column normal rows use for the date.
       lastSection = nonEmpty[0];
@@ -1673,6 +1945,8 @@ function recordsFromCSV(text){
     if(!primarySite && primaryLink) primarySite = inferSiteFromUrl(primaryLink);
 
     const dateObj = parsedDate;
+    const presaleDateVal = presaleDateIdx !== -1 ? row[presaleDateIdx] : '';
+    const presaleDateObj = presaleDateVal ? parseEventDate(presaleDateVal) : null;
 
     records.push({
       name,
@@ -1682,7 +1956,14 @@ function recordsFromCSV(text){
       primarySite,
       primaryLink,
       vividLink: vividIdx !== -1 ? row[vividIdx] : '',
-      stubLink: stubIdx !== -1 ? row[stubIdx] : ''
+      stubLink: stubIdx !== -1 ? row[stubIdx] : '',
+      presaleDateStr: presaleDateVal,
+      presaleDateObj: presaleDateObj ? presaleDateObj.toISOString() : null,
+      code: codeIdx !== -1 ? row[codeIdx] : '',
+      publicSaleDateStr: publicSaleIdx !== -1 ? row[publicSaleIdx] : '',
+      // Transient — read once by handleCsvUpload to seed the note, then
+      // discarded. Not a permanent field on the event record.
+      whatToGoFor: whatToGoForIdx !== -1 ? row[whatToGoForIdx] : ''
     });
   });
 
@@ -1811,6 +2092,17 @@ async function handleCsvUpload(file, text){
   }
   pushUndo();
   const existingKeys = new Set(allEvents.map(eventKey));
+  // "What to go for" columns (seen in presale trackers) seed the note on
+  // first import — that's exactly the kind of thing that belongs in
+  // notes. Only fills in an empty note, so re-uploading never clobbers
+  // something you've since written yourself.
+  records.forEach(r => {
+    if(r.whatToGoFor && r.whatToGoFor.trim()){
+      const ann = getAnnotation(eventKey(r));
+      if(!ann.note || !ann.note.trim()) ann.note = r.whatToGoFor.trim();
+    }
+    delete r.whatToGoFor;
+  });
   const merged = mergeEvents(allEvents, records);
   merged.forEach(ev => {
     const key = eventKey(ev);
@@ -1993,6 +2285,7 @@ document.addEventListener('keydown', e => {
     syncPopover.classList.remove('open');
     helpPopover.classList.remove('open');
     if(addSheetModal.style.display !== 'none') closeAddSheetModal();
+    if(insightsModal.style.display !== 'none') closeInsightsModal();
     return;
   }
 
@@ -2079,10 +2372,16 @@ document.addEventListener('keydown', e => {
 });
 
 let sheetNameManuallyEdited = false;
+const SHEET_TYPE_DEFAULT_NAMES = { standard: null, usopen: 'US Open', presale: 'Presale' };
+
+function selectedSheetType(){
+  const checked = document.querySelector('input[name="newSheetType"]:checked');
+  return checked ? checked.value : 'standard';
+}
 
 function openAddSheetModal(){
   newSheetNameInput.value = `Sheet ${sheets.length + 1}`;
-  newSheetUsOpenCheckbox.checked = false;
+  document.querySelector('input[name="newSheetType"][value="standard"]').checked = true;
   sheetNameManuallyEdited = false;
   addSheetModal.style.display = 'flex';
   newSheetNameInput.focus();
@@ -2093,20 +2392,23 @@ function closeAddSheetModal(){
 }
 
 newSheetNameInput.addEventListener('input', () => { sheetNameManuallyEdited = true; });
-newSheetUsOpenCheckbox.addEventListener('change', () => {
-  if(sheetNameManuallyEdited) return; // don't clobber a name they've actually typed
-  newSheetNameInput.value = newSheetUsOpenCheckbox.checked ? 'US Open' : `Sheet ${sheets.length + 1}`;
+document.querySelectorAll('input[name="newSheetType"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if(sheetNameManuallyEdited) return; // don't clobber a name they've actually typed
+    const defaultName = SHEET_TYPE_DEFAULT_NAMES[selectedSheetType()] || `Sheet ${sheets.length + 1}`;
+    newSheetNameInput.value = defaultName;
+  });
 });
 
 function createSheetFromModal(){
-  const isUsOpen = newSheetUsOpenCheckbox.checked;
-  const defaultName = isUsOpen ? 'US Open' : `Sheet ${sheets.length + 1}`;
+  const type = selectedSheetType(); // 'standard' | 'usopen' | 'presale'
+  const defaultName = SHEET_TYPE_DEFAULT_NAMES[type] || `Sheet ${sheets.length + 1}`;
   const trimmed = newSheetNameInput.value.trim() || defaultName;
   if(sheets.some(s => s.name === trimmed)){
     alert('A sheet with that name already exists.');
     return;
   }
-  const entry = { name: trimmed, mode: isUsOpen ? 'usopen' : 'standard' };
+  const entry = { name: trimmed, mode: type };
   sheets.push(entry);
   pendingEmptySheets.push(entry);
   closeAddSheetModal();
@@ -2203,7 +2505,7 @@ async function deleteSheet(name){
 function renderTabs(){
   sheetTabs.innerHTML = sheets.map(s => `
     <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Drag to reorder — double-click to rename" draggable="true">
-      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : '🎟️'}</span>
+      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
       <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
     </button>
@@ -2374,9 +2676,98 @@ function groupByRating(events){
 }
 
 function render(){
-  if(activeSheetMode() === 'usopen') renderUsOpen();
+  const mode = activeSheetMode();
+  if(mode === 'usopen') renderUsOpen();
+  else if(mode === 'presale') renderPresale();
   else renderStandard();
   refreshNavigation();
+}
+
+// Groups by presale/drop date+time when that data exists — matching how
+// a presale tracker sheet is actually organized ("these drop at 11 AM,
+// these drop at noon..."), which is the moment you need to act, not the
+// eventual show date. Falls back to grouping by show date for sheets
+// that don't have presale-date data (e.g. cards added by hand).
+function groupByPresaleOrShowDate(events){
+  if(!events.some(e => e.presaleDateObj)) return groupByDate(events);
+
+  const withDate = events.filter(e => e.presaleDateObj).sort((a, b) => new Date(a.presaleDateObj) - new Date(b.presaleDateObj));
+  const withoutDate = events.filter(e => !e.presaleDateObj);
+
+  const groups = [];
+  let currentKey = null, currentGroup = null;
+  withDate.forEach(ev => {
+    const d = new Date(ev.presaleDateObj);
+    const key = d.toISOString().slice(0, 16); // groups to the minute — the actual drop time
+    if(key !== currentKey){
+      currentKey = key;
+      const heading = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale';
+      currentGroup = { heading, showHeading: true, showTodayTag: false, events: [] };
+      groups.push(currentGroup);
+    }
+    currentGroup.events.push(ev);
+  });
+  if(withoutDate.length){
+    groups.push({ heading: 'No presale time set', showHeading: true, showTodayTag: false, events: withoutDate });
+  }
+  return groups;
+}
+
+// Presale cards carry a lot more per-card content than a dense grid is
+// really meant for — notes always open, editable links, price sections —
+// so this caps the effective column count regardless of the global
+// stepper, matching "fewer, richer cards" rather than forcing 8 narrow
+// columns of unreadable presale cards.
+function renderPresale(){
+  const query = searchInput.value.trim().toLowerCase();
+  const hasData = allEvents.length > 0;
+  emptyState.style.display = hasData ? 'none' : 'block';
+  clearBtn.style.display = hasData ? 'inline-block' : 'none';
+
+  if(!hasData){
+    listRoot.innerHTML = '';
+    countLabel.textContent = '';
+    return;
+  }
+
+  let filtered = allEvents.filter(ev => {
+    if(!matchesSearch(ev, query)) return false;
+    const ann = getAnnotation(eventKey(ev));
+    if(archiveOnly) return !!ann.archived;
+    if(ann.archived) return false;
+    if(hotOnly && !ann.rating) return false;
+    if(newOnly && !ann.isNew) return false;
+    return true;
+  });
+
+  countLabel.textContent = `${filtered.length} of ${allEvents.length}`;
+
+  const pinned = filtered.filter(ev => getAnnotation(eventKey(ev)).pinned);
+  const rest = filtered.filter(ev => !getAnnotation(eventKey(ev)).pinned);
+
+  if(!rest.length && !pinned.length){
+    listRoot.innerHTML = '<div class="no-results">No events match your search.</div>';
+    return;
+  }
+
+  const presaleCols = Math.min(columnCount, 3);
+  const colStyle = `style="--cols:${presaleCols};"`;
+  let html = '';
+  if(pinned.length){
+    html += `${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid" ${colStyle}>${pinned.map(cardHtmlPresale).join('')}</div>`;
+  }
+  const now = new Date();
+  groupByPresaleOrShowDate(rest).forEach(g => {
+    const firstEv = g.events[0];
+    const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
+    if(g.showHeading){
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '');
+    }
+    html += `<div class="day-grid" ${colStyle}>${g.events.map(cardHtmlPresale).join('')}</div>`;
+  });
+
+  listRoot.innerHTML = html;
 }
 
 function renderStandard(){
@@ -2459,6 +2850,88 @@ function formatDateTimeHeadline(dateObj){
   return `${datePart} ${time}`;
 }
 
+// "Aug 21, 10:00 AM" — used for the presale meta row (public sale date),
+// which needs to be compact rather than the full headline format.
+function formatCompactDateTime(str){
+  const d = parseEventDate(str);
+  if(!d) return str;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// One presale link field: shows an editable input at all times (so a
+// blank one is obviously fillable), plus quick open/copy buttons once a
+// URL is actually there.
+function presaleLinkRowHtml(key, label, field, value, placeholder){
+  const has = !!(value && value.trim());
+  return `
+    <div class="presale-link-row">
+      <span class="presale-link-label">${escapeHtml(label)}</span>
+      <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="${field}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}">
+      ${has ? `<a class="presale-link-open" href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer" title="Open link">↗</a>
+      <button type="button" class="copy-btn presale-copy" data-href="${escapeHtml(value)}" title="Copy link">
+        <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>` : '<span class="presale-link-empty-spacer"></span>'}
+    </div>`;
+}
+
+function cardHtmlPresale(ev){
+  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
+  const key = eventKey(ev);
+  const ann = getAnnotation(key);
+  const isSelected = selectMode && selectedKeys.has(key);
+  const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
+  const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
+    + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
+
+  const metaBits = [];
+  if(ev.code && ev.code.trim()) metaBits.push(`<span class="presale-meta-item">Code <b>${escapeHtml(ev.code)}</b><button type="button" class="copy-btn presale-code-copy" data-href="${escapeHtml(ev.code)}" title="Copy code"><svg class="icon-copy" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="icon-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></button></span>`);
+  if(ev.publicSaleDateStr && ev.publicSaleDateStr.trim()) metaBits.push(`<span class="presale-meta-item">Public sale ${escapeHtml(formatCompactDateTime(ev.publicSaleDateStr))}</span>`);
+  const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
+
+  return `
+    <div class="ticket presale-card ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+      ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
+      <div class="ticket-header-row">
+        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
+        <div class="ticket-toolbar">
+          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
+          <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="ticket-body presale-body">
+        <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
+        <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+        ${metaRow}
+
+        <p class="notes-label">Ticket links</p>
+        <div class="presale-links">
+          ${presaleLinkRowHtml(key, 'TM', 'primaryLink', ev.primaryLink, 'Paste Ticketmaster / presale link')}
+          ${presaleLinkRowHtml(key, 'Vivid', 'vividLink', ev.vividLink, 'Paste VividSeats link')}
+          ${presaleLinkRowHtml(key, 'Stub', 'stubLink', ev.stubLink, 'Paste StubHub link')}
+        </div>
+
+        <p class="notes-label">Rating</p>
+        ${ratingRowHtml(key, ann.rating)}
+
+        <p class="notes-label">Notes</p>
+        <textarea class="notes-textarea presale-notes" placeholder="Sections to target, seating notes, anything worth remembering — this stays open, no need to click in." data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
+        ${noteHistoryHtml(key, ann)}
+
+        <p class="notes-label">Sections &amp; prices</p>
+        <div class="price-rows" data-rows-key="${escapeHtml(key)}">${rows}</div>
+        <div class="price-chips">${chips}</div>
+
+        <div class="panel-action-row">
+          <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
+          <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 function cardHtmlStandard(ev){
   const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
   const buttons = [
@@ -2486,7 +2959,7 @@ function cardHtmlStandard(ev){
       <div class="ticket-body">
         <div class="ticket-main">
           <div class="ticket-info">
-            <div class="ev-name">${escapeHtml(ev.name)}</div>
+            <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
             <div class="ev-venue">${escapeHtml(ev.venue)}</div>
           </div>
           <div class="perf"></div>
@@ -2576,6 +3049,150 @@ function formatPriceDisplay(raw){
   return '$' + formatted;
 }
 
+// Groups "Hell's Kitchen (Touring)" with "Hell's Kitchen" and other minor
+// punctuation/casing variants of the same show name, without needing an
+// exact character-for-character match.
+function normalizeShowName(name){
+  return (name || '')
+    .toLowerCase()
+    .replace(/\(touring\)/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// The actual "database for quick decision making" — pulls together every
+// show sharing this name across the current sheet: a chronological notes
+// timeline (current note + full history from every one of those shows,
+// each tagged with which specific date/venue it came from), price
+// patterns per section label (count/min/max/avg), how many were flagged
+// new on the last upload, and — when presale-drop-time data exists — the
+// most common hour shows like this tend to drop at.
+function buildArtistInsights(anchorKey){
+  const anchorEv = allEvents.find(e => eventKey(e) === anchorKey);
+  if(!anchorEv) return null;
+  const normName = normalizeShowName(anchorEv.name);
+  const shows = allEvents
+    .filter(e => normalizeShowName(e.name) === normName)
+    .map(ev => {
+      const key = eventKey(ev);
+      return { ev, key, ann: getAnnotation(key) };
+    })
+    .sort((a, b) => {
+      const ad = a.ev.dateObj ? new Date(a.ev.dateObj).getTime() : Infinity;
+      const bd = b.ev.dateObj ? new Date(b.ev.dateObj).getTime() : Infinity;
+      return ad - bd;
+    });
+
+  const showLabel = ev => (ev.dateObj
+    ? new Date(ev.dateObj).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'Date TBD') + (ev.venue ? ' · ' + ev.venue : '');
+
+  const timeline = [];
+  shows.forEach(({ ev, ann }) => {
+    const label = showLabel(ev);
+    (ann.noteHistory || []).forEach(h => {
+      if(h.text && h.text.trim()) timeline.push({ when: h.changedAt, text: h.text.trim(), showLabel: label, current: false });
+    });
+    if(ann.note && ann.note.trim()){
+      timeline.push({ when: null, text: ann.note.trim(), showLabel: label, current: true });
+    }
+  });
+  timeline.sort((a, b) => {
+    if(a.current !== b.current) return a.current ? -1 : 1;
+    if(a.when && b.when) return new Date(b.when) - new Date(a.when);
+    return 0;
+  });
+
+  const priceEntries = [];
+  shows.forEach(({ ev, ann }) => {
+    (ann.sections || []).forEach(s => {
+      if((s.label && s.label.trim()) || (s.price && s.price.trim())){
+        priceEntries.push({ label: (s.label || '').trim() || '(unlabeled)', price: s.price || '', showDate: ev.dateObj });
+      }
+    });
+  });
+  const labelCounts = {};
+  priceEntries.forEach(p => { labelCounts[p.label] = (labelCounts[p.label] || 0) + 1; });
+  const labelStats = Object.keys(labelCounts).map(label => {
+    const nums = priceEntries
+      .filter(p => p.label === label && p.price && !/[a-zA-Z]/.test(p.price))
+      .map(p => parseFloat(p.price.replace(/[$,\s]/g, '')))
+      .filter(n => !isNaN(n));
+    return {
+      label, count: labelCounts[label],
+      min: nums.length ? Math.min(...nums) : null,
+      max: nums.length ? Math.max(...nums) : null,
+      avg: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
+    };
+  }).sort((a, b) => b.count - a.count);
+
+  let commonDropHour = null;
+  const dropHours = shows.map(({ ev }) => ev.presaleDateObj ? new Date(ev.presaleDateObj).getHours() : null).filter(h => h !== null);
+  if(dropHours.length){
+    const hourCounts = {};
+    dropHours.forEach(h => { hourCounts[h] = (hourCounts[h] || 0) + 1; });
+    const bestHour = Object.keys(hourCounts).sort((a, b) => hourCounts[b] - hourCounts[a])[0];
+    commonDropHour = { hour: parseInt(bestHour, 10), count: hourCounts[bestHour], of: dropHours.length };
+  }
+
+  return {
+    name: anchorEv.name,
+    shows, showLabel, timeline, labelStats, commonDropHour,
+    newCount: shows.filter(s => s.ann.isNew).length,
+    totalCount: shows.length
+  };
+}
+
+function insightsBodyHtml(insights){
+  const { shows, timeline, labelStats, commonDropHour, newCount, totalCount } = insights;
+
+  const summaryBits = [`<span class="insights-stat"><b>${totalCount}</b> show${totalCount === 1 ? '' : 's'} tracked</span>`];
+  if(newCount) summaryBits.push(`<span class="insights-stat is-new">🆕 <b>${newCount}</b> newly added</span>`);
+  if(commonDropHour){
+    const timeLabel = new Date(2000, 0, 1, commonDropHour.hour).toLocaleTimeString('en-US', { hour: 'numeric' });
+    summaryBits.push(`<span class="insights-stat">Usually drops around <b>${escapeHtml(timeLabel)}</b> <span class="insights-stat-sub">(${commonDropHour.count}/${commonDropHour.of} shows)</span></span>`);
+  }
+
+  const showsHtml = shows.map(({ ev, ann }) => {
+    const dateStr = ev.dateObj ? new Date(ev.dateObj).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
+    return `<div class="insights-show-row">
+      <span class="insights-show-date">${escapeHtml(dateStr)}</span>
+      <span class="insights-show-venue">${escapeHtml(ev.venue || '')}</span>
+      ${ann.isNew ? '<span class="new-badge">NEW</span>' : ''}
+      ${ann.rating ? `<span class="insights-show-rating">🔥${ann.rating}</span>` : ''}
+      ${ann.archived ? '<span class="insights-show-archived">📦</span>' : ''}
+    </div>`;
+  }).join('');
+
+  const timelineHtml = timeline.length ? timeline.map(t => {
+    const when = t.current ? 'Current' : (t.when ? new Date(t.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+    return `<div class="insights-timeline-entry ${t.current ? 'is-current' : ''}">
+      <div class="insights-timeline-meta"><span class="insights-timeline-when">${escapeHtml(when)}</span><span class="insights-timeline-show">${escapeHtml(t.showLabel)}</span></div>
+      <div class="insights-timeline-text">${escapeHtml(t.text)}</div>
+    </div>`;
+  }).join('') : '<p class="insights-empty">No notes logged yet across these shows.</p>';
+
+  const priceHtml = labelStats.length ? labelStats.map(s => {
+    const range = s.min === null ? '—' : (s.min === s.max ? `$${s.min.toLocaleString()}` : `$${s.min.toLocaleString()}–$${s.max.toLocaleString()}`);
+    return `<div class="insights-price-row">
+      <span class="insights-price-label">${escapeHtml(s.label)}</span>
+      <span class="insights-price-count">${s.count}×</span>
+      <span class="insights-price-range">${range}</span>
+    </div>`;
+  }).join('') : '<p class="insights-empty">No price sections logged yet across these shows.</p>';
+
+  return `
+    <div class="insights-summary">${summaryBits.join('')}</div>
+    <p class="notes-label">Shows (${shows.length})</p>
+    <div class="insights-shows-list">${showsHtml}</div>
+    <p class="notes-label">Notes timeline</p>
+    <div class="insights-timeline-list">${timelineHtml}</div>
+    <p class="notes-label">Price patterns</p>
+    <div class="insights-price-list">${priceHtml}</div>
+  `;
+}
+
 function notesPreviewHtml(ann, key){
   const parts = [];
   const topLine = [];
@@ -2606,13 +3223,13 @@ function notesPreviewHtml(ann, key){
 }
 
 function priceRowHtml(key, row){
-  const updated = row.updatedAt ? new Date(row.updatedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+  const updated = row.updatedAt ? new Date(row.updatedAt).toLocaleString('en-US', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
   return `
     <div class="price-row" data-row-id="${row.id}">
       <input type="text" class="price-label" placeholder="Section (e.g. Floor)" value="${escapeHtml(row.label)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="label">
       <input type="text" class="price-value" placeholder="Price" value="${escapeHtml(row.price)}" data-key="${escapeHtml(key)}" data-row="${row.id}" data-field="price">
       <span class="price-formatted" data-formatted-for="${row.id}">${escapeHtml(formatPriceDisplay(row.price))}</span>
-      <span class="price-updated">${updated ? 'Upd. ' + updated : ''}</span>
+      <span class="price-updated">${updated}</span>
       <button type="button" class="price-remove" data-key="${escapeHtml(key)}" data-row="${row.id}" title="Remove row">×</button>
     </div>`;
 }
@@ -2983,6 +3600,15 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Clicking an event name opens the cross-show insights modal — notes
+  // timeline and price patterns aggregated across every show sharing
+  // this name, not just this one card.
+  const insightsTarget = e.target.closest('[data-action="insights"]');
+  if(insightsTarget){
+    openInsightsModal(insightsTarget.dataset.key);
+    return;
+  }
+
   // Notes panel toggle. Re-rendering keeps the always-visible preview in
   // sync with whatever was just typed, and ensures only one card's panel
   // is open at a time. Snapshotting only on OPEN (not every keystroke
@@ -3011,7 +3637,7 @@ listRoot.addEventListener('click', async e => {
     const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7), label: label, price: '', updatedAt: null };
     ann.sections.push(row);
     saveNotesSoon();
-    const rowsContainer = chip.closest('.notes-panel').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
+    const rowsContainer = chip.closest('.ticket-body').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
     rowsContainer.insertAdjacentHTML('beforeend', priceRowHtml(key, row));
     // A preset chip (Floor, 100 Level, etc.) already fills the label, so
     // jump straight to the price field to type — only the blank-label
@@ -3062,6 +3688,18 @@ listRoot.addEventListener('input', e => {
     return;
   }
 
+  const linkInput = e.target.closest('.presale-link-input');
+  if(linkInput){
+    const key = linkInput.dataset.key;
+    const field = linkInput.dataset.field; // 'primaryLink' | 'vividLink' | 'stubLink'
+    const ev = allEvents.find(x => eventKey(x) === key);
+    if(ev){
+      ev[field] = linkInput.value;
+      saveNotesSoon();
+    }
+    return;
+  }
+
   const priceField = e.target.closest('.price-label, .price-value');
   if(priceField){
     const key = priceField.dataset.key;
@@ -3072,10 +3710,10 @@ listRoot.addEventListener('input', e => {
     if(row){
       row[field] = priceField.value;
       row.updatedAt = new Date().toISOString();
-      const panel = priceField.closest('.notes-panel');
+      const panel = priceField.closest('.ticket-body');
       const stamp = panel.querySelector(`.price-row[data-row-id="${rowId}"] .price-updated`);
       if(stamp){
-        stamp.textContent = 'Upd. ' + new Date(row.updatedAt).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});
+        stamp.textContent = new Date(row.updatedAt).toLocaleString('en-US', {month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'});
       }
       if(field === 'price'){
         const formattedEl = panel.querySelector(`.price-formatted[data-formatted-for="${rowId}"]`);
@@ -3083,6 +3721,16 @@ listRoot.addEventListener('input', e => {
       }
       saveNotesSoon();
     }
+  }
+});
+
+// Presale link inputs don't re-render on every keystroke (same reasoning
+// as notes: re-rendering mid-type would drop focus/cursor position), so
+// the open-link/copy buttons that depend on "is there a value here" only
+// refresh once editing is actually done.
+listRoot.addEventListener('focusout', e => {
+  if(e.target.classList && e.target.classList.contains('presale-link-input')){
+    render();
   }
 });
 
