@@ -62,6 +62,25 @@
   html[data-density="tiny"] .ticket-header-row{flex-wrap:wrap;row-gap:0;}
   html[data-density="tiny"] .ticket-header-row .dn-merged-date{flex:1 1 100%;padding-bottom:2px;}
   html[data-density="tiny"] .ticket-header-row .ticket-toolbar{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap;row-gap:2px;padding:0 6px 4px 14px;}
+  /* At compact/tiny density (7+ columns), even a single short link
+     button plus its fixed-width copy icon is wide enough to just barely
+     still fit beside the title — never quite triggering flex-wrap's
+     natural fallback, but still eating enough width to crowd/truncate
+     the title uncomfortably. Forcing info-above-actions here (same
+     pattern as the phone layout below) sidesteps that entirely: the
+     title always gets the card's full width, and the link buttons lay
+     out in a row underneath instead of a cramped side column.
+     This is keyed to the card's actual rendered width via a container
+     query (see container-type on .ticket), not to the column-count
+     setting — a card can end up exactly this narrow either from a high
+     column count on a wide screen OR a normal column count on a
+     smaller/narrower window, and both need the same fix. */
+  @container (max-width: 260px){
+    .ticket-main{flex-direction:column;}
+    .ticket-actions{flex-direction:row;flex-wrap:wrap;}
+    .link-row{flex:1 1 auto;}
+    .shift-block-main{flex-direction:column;align-items:stretch;}
+  }
 
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -248,19 +267,18 @@
   }
 
   .day-heading{
-    background:var(--bg);
+    background:var(--card);
     font-family:'Bebas Neue',sans-serif;
     font-size:22px;letter-spacing:.02em;
     color:var(--text);
-    padding:18px 0 6px;
-    margin-top:14px;
-    border-top:1px solid var(--hairline);
+    padding:10px 14px;
+    margin:14px 0 10px;
+    border-radius:8px;
+    border:1px solid var(--hairline);
     display:flex;align-items:center;gap:10px;
   }
   .day-heading:first-child{
     margin-top:0;
-    padding-top:10px;
-    border-top:none;
   }
   .day-heading .tag-today{
     font-family:'IBM Plex Mono',monospace;
@@ -274,7 +292,7 @@
   .collapse-caret{flex:0 0 auto;opacity:.55;transition:transform .15s ease;}
   .day-heading.collapsible-heading.collapsed .collapse-caret{transform:rotate(-90deg);}
   .day-heading.collapsible-heading.collapsed + .day-grid{display:none;}
-  .day-heading.collapsible-heading.collapsed{padding-bottom:10px;margin-bottom:2px;border-bottom:1px dashed var(--hairline);}
+  .day-heading.collapsible-heading.collapsed{opacity:.7;}
   .heading-pin-btn{
     margin-left:auto;flex:0 0 auto;
     width:26px;height:26px;border-radius:6px;border:1px solid transparent;
@@ -295,6 +313,14 @@
     border-radius:10px;
     overflow:hidden;
     transition:border-color .15s ease;
+    /* Lets .ticket-main below react to THIS card's actual rendered
+       width, not the column-count setting or viewport size. Two cards
+       can end up the exact same pixel width from very different causes
+       (a high column count on a wide screen, or a low column count on a
+       narrow window/embedded view) — keying the squeeze-fix off real
+       width means it self-corrects in every one of those cases instead
+       of only the one the data-density heuristic happened to cover. */
+    container-type:inline-size;
   }
   .ticket:hover{border-color:#4a4950;}
   .ticket.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
@@ -361,7 +387,7 @@
   .shift-block-main{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-right:44px;}
   .shift-block-info{flex:1 1 auto;min-width:120px;}
   .shift-block-info .ev-sub{margin-top:2px;}
-  .shift-block .ticket-actions{flex:0 0 auto;padding:0;min-width:var(--minw-actions);}
+  .shift-block .ticket-actions{flex:0 0 auto;padding:0;}
   .shift-divider{height:0;}
   .filter-btn{
     display:flex;align-items:center;gap:6px;
@@ -448,7 +474,13 @@
     gap:4px;
     padding:var(--pad-card);
     justify-content:flex-start;
-    min-width:var(--minw-actions);
+    /* No min-width here on purpose — this used to reserve enough room
+       for a full 3-button (TM/Vivid/Stub) stack even when a card only
+       has one short link (e.g. just "AXS"), which squeezed the title
+       into a much narrower column than it needed and made the single
+       button look like it was crowding the text. flex-shrink:0 above
+       already keeps this column from ever getting squashed smaller than
+       its own content needs, so it can safely size to just that. */
   }
   .link-row{display:flex;gap:4px;}
   .link-btn{
@@ -572,6 +604,11 @@
   .presale-meta-row{display:flex;flex-wrap:wrap;gap:10px;margin:2px 0 4px;}
   .presale-meta-item{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);display:inline-flex;align-items:center;gap:4px;}
   .presale-meta-item b{color:var(--amber);font-weight:700;}
+  .presale-meta-copy{
+    width:20px;height:20px;padding:0;flex:0 0 auto;
+    border-radius:4px;
+  }
+  .presale-meta-copy svg{width:11px;height:11px;}
   .presale-code-copy{width:18px;height:18px;flex:0 0 auto;}
   .presale-code-copy svg{width:10px;height:10px;}
   .presale-links{display:flex;flex-direction:column;gap:6px;margin:4px 0 2px;}
@@ -849,19 +886,35 @@
   .drop-zone.drag{border-color:var(--amber);background:rgba(242,193,78,.05);}
 
   .no-results{color:var(--muted);font-size:14px;padding:40px 0;text-align:center;}
-  .az-jump-bar{
-    display:flex;flex-wrap:wrap;gap:4px;
+  .jump-bar{
+    display:flex;flex-wrap:wrap;gap:6px;align-items:center;
     padding:10px 0 14px;margin-bottom:4px;border-bottom:1px solid var(--hairline);
   }
-  .az-jump-btn{
-    width:26px;height:26px;flex:0 0 auto;
-    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
-    border-radius:6px;border:1px solid var(--hairline);background:transparent;color:var(--text);
-    cursor:pointer;transition:border-color .15s ease,background .15s ease,color .15s ease;
+  .jump-name-btn{
+    display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
+    max-width:220px;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:5px 10px;border-radius:20px;border:1px solid var(--hairline);
+    background:transparent;color:var(--text);cursor:pointer;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
   }
-  .az-jump-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.08);}
-  .az-jump-btn:disabled{color:var(--muted);opacity:.3;cursor:default;}
-  .az-jump-btn:disabled:hover{border-color:var(--hairline);background:transparent;}
+  .jump-name-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.08);}
+  .jump-name-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .jump-name-star{
+    flex:0 0 auto;color:var(--muted);font-size:13px;line-height:1;
+    transition:color .15s ease,transform .15s ease;
+  }
+  .jump-name-star:hover{color:var(--pin);transform:scale(1.15);}
+  .jump-name-star.pinned{color:var(--pin);}
+  .jump-bar-toggle{
+    flex:0 0 auto;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:5px 10px;border-radius:20px;border:1px dashed var(--hairline);
+    background:transparent;color:var(--muted);cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  .jump-bar-toggle:hover{border-color:var(--teal);color:var(--teal);}
+  .jump-bar-hint{font-size:12px;color:var(--muted);font-style:italic;}
   .did-you-mean-btn{
     margin-top:10px;background:transparent;border:1px dashed var(--teal);color:var(--teal);
     font-family:'Inter',sans-serif;font-size:13px;padding:6px 14px;border-radius:8px;cursor:pointer;
@@ -1063,6 +1116,10 @@
         <span class="sheet-type-label">🎾 US Open <span class="modal-checkbox-hint">— Day/Night columns, uploads always merge</span></span>
       </label>
       <label class="sheet-type-option">
+        <input type="radio" name="newSheetType" value="broadway">
+        <span class="sheet-type-label">🎭 Broadway <span class="modal-checkbox-hint">— matinee/evening merge like US Open, but sort by name or date like Standard</span></span>
+      </label>
+      <label class="sheet-type-option">
         <input type="radio" name="newSheetType" value="presale">
         <span class="sheet-type-label">🎫 Presale <span class="modal-checkbox-hint">— fewer, richer cards: notes always open, ticket links editable inline</span></span>
       </label>
@@ -1217,6 +1274,20 @@ let searchAnnotationsMap = null;
 // Sheet names with a cross-sheet edit pending a save. Flushed by
 // saveNotesNow() alongside the normal active-sheet push.
 let dirtySheets = new Set();
+// The jump bar's pinned-names shortlist (persists locally, across every
+// sheet — the point is "artists I care about", not "artists on this one
+// sheet"). Stored as an array in localStorage, kept as a Set at runtime.
+function loadPinnedJumpNames(){
+  try{
+    const raw = localStorage.getItem('ticketWatch:pinnedJumpNames');
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  }catch(e){ return new Set(); }
+}
+function savePinnedJumpNames(){
+  try{ localStorage.setItem('ticketWatch:pinnedJumpNames', JSON.stringify(Array.from(pinnedJumpNames))); }catch(e){ /* private browsing / storage disabled — pins just won't persist */ }
+}
+let pinnedJumpNames = loadPinnedJumpNames();
+let jumpBarExpanded = false; // false = show pinned names only, true = show every heading
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let noteSnapshotOnOpen = null; // ann.note captured when the panel opened, so closing can tell if it actually changed
 let historyExpandedKeys = new Set(); // keys whose note-history list is currently expanded
@@ -1262,7 +1333,7 @@ function activeSheet(){
 function activeSheetMode(){
   const s = activeSheet();
   const m = s && s.mode;
-  return (m === 'usopen' || m === 'presale') ? m : 'standard';
+  return (m === 'usopen' || m === 'presale' || m === 'broadway') ? m : 'standard';
 }
 
 // Reflects the active sheet's type in the header, empty-state copy, upload
@@ -1273,17 +1344,25 @@ function updateModeUI(){
   const mode = activeSheetMode();
   const isUsOpen = mode === 'usopen';
   const isPresale = mode === 'presale';
-  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : 'Ticket List';
+  const isBroadway = mode === 'broadway';
+  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : isBroadway ? 'Broadway Mode' : 'Ticket List';
   hotFilterBtn.style.display = 'inline-flex';
+  // US Open always groups by venue category, so its sort dropdown would
+  // do nothing — Broadway keeps the dropdown, since which show and which
+  // date matter differently show to show and it's worth being able to
+  // flip between them.
   sortSelect.style.display = isUsOpen ? 'none' : 'inline-block';
   uploadBtn.textContent = 'Add CSV';
-  emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : '🎟️';
+  emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : isBroadway ? '🎭' : '🎟️';
   if(isUsOpen){
     emptyHeading.textContent = 'No sessions yet';
     emptyBody.textContent = 'Add a CSV to get started — sessions are grouped by venue, with each date\'s Day and Night sessions shown side by side. Every future upload adds on top of what\'s here; duplicates are skipped.';
   } else if(isPresale){
     emptyHeading.textContent = 'No presales yet';
     emptyBody.textContent = 'Add a CSV to get started — presale cards show notes and price sections right on the card, and you can type or paste ticket links straight into the card as they become available. Every future upload merges in and refreshes matches.';
+  } else if(isBroadway){
+    emptyHeading.textContent = 'No shows yet';
+    emptyBody.textContent = 'Add a CSV to get started — matinee and evening performances of the same show on the same date are merged into one card, side by side. Sort by name or date like any other sheet. Every future upload adds on top of what\'s here; duplicates are skipped.';
   } else {
     emptyHeading.textContent = 'This sheet is empty';
     emptyBody.textContent = 'Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.';
@@ -1543,7 +1622,7 @@ let remoteSheetsList = []; // [{name, mode}] straight from the backend, in real 
 // before their first upload.
 function rebuildSheetsFromCache(){
   let rebuilt;
-  const normalizeMode = m => (m === 'usopen' || m === 'presale') ? m : 'standard';
+  const normalizeMode = m => (m === 'usopen' || m === 'presale' || m === 'broadway') ? m : 'standard';
   if(remoteSheetsList.length){
     rebuilt = remoteSheetsList.map(s => ({ name: s.name, mode: normalizeMode(s.mode) }));
   } else {
@@ -2609,7 +2688,7 @@ document.addEventListener('keydown', e => {
 });
 
 let sheetNameManuallyEdited = false;
-const SHEET_TYPE_DEFAULT_NAMES = { standard: null, usopen: 'US Open', presale: 'Presale' };
+const SHEET_TYPE_DEFAULT_NAMES = { standard: null, usopen: 'US Open', broadway: 'Broadway', presale: 'Presale' };
 
 function selectedSheetType(){
   const checked = document.querySelector('input[name="newSheetType"]:checked');
@@ -2742,7 +2821,7 @@ async function deleteSheet(name){
 function renderTabs(){
   sheetTabs.innerHTML = sheets.map(s => `
     <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Drag to reorder — double-click to rename" draggable="true">
-      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : '🎟️'}</span>
+      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : s.mode === 'broadway' ? '🎭' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
       <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
     </button>
@@ -2982,6 +3061,7 @@ function render(){
   const mode = activeSheetMode();
   if(mode === 'usopen') renderUsOpen();
   else if(mode === 'presale') renderPresale();
+  else if(mode === 'broadway') renderBroadway();
   else renderStandard();
   refreshNavigation();
 }
@@ -3060,7 +3140,30 @@ function renderPresale(){
   const colStyle = '';
   let html = '';
   if(pinned.length){
-    html += `${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid" ${colStyle}>${pinned.map(cardHtmlPresale).join('')}</div>`;
+    // Same reasoning as the standard list — pinned presales get grouped
+    // by whatever the sort dropdown is set to, instead of one flat block.
+    const pinnedGroups = sortMode === 'upload' ? groupByUploadOrder(pinned)
+      : sortMode === 'venue' ? groupByVenue(pinned)
+      : sortMode === 'name' ? groupByName(pinned)
+      : sortMode === 'rating' ? groupByRating(pinned)
+      : groupByPresaleOrShowDate(pinned);
+    html += dayHeadingHtml('📌 Pinned');
+    let pinnedPending = [];
+    const flushPinnedGrid = () => {
+      if(pinnedPending.length){
+        html += `<div class="day-grid pinned-grid" ${colStyle}>${pinnedPending.join('')}</div>`;
+        pinnedPending = [];
+      }
+    };
+    pinnedGroups.forEach(g => {
+      if(g.showHeading){
+        flushPinnedGrid();
+        const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading);
+      }
+      g.events.forEach(ev => pinnedPending.push(cardHtmlPresale(ev)));
+    });
+    flushPinnedGrid();
   }
   const now = new Date();
   // Sort dropdown now actually applies here, same as every other sheet —
@@ -3074,7 +3177,7 @@ function renderPresale(){
     : sortMode === 'rating' ? groupByRating(rest)
     : groupByPresaleOrShowDate(rest);
   if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
-    html += azJumpBarHtml(groups);
+    html += nameJumpBarHtml(groups);
   }
   groups.forEach(g => {
     const firstEv = g.events[0];
@@ -3147,7 +3250,16 @@ function renderSearchResults(query){
   groupByName(matched).forEach(g => {
     const pinKeys = g.events.map(ev => eventKey(ev));
     html += dayHeadingHtml(g.heading, '', pinKeys);
-    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => cardHtmlStandard(searchAnnotationsMap.get(eventKey(ev)).ev)).join('')}</div>`;
+    // Show each result the way its own sheet actually shows it — a
+    // presale event still needs its Code/public-sale-date field visible
+    // and copyable, not the plain standard card it'd otherwise fall back
+    // to. (US Open sessions stay on the standard card here since pairing
+    // up a matching Day/Night session across a cross-sheet search result
+    // is out of scope — that pairing only exists within its own sheet.)
+    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => {
+      const liveEv = searchAnnotationsMap.get(eventKey(ev)).ev;
+      return liveEv.__mode === 'presale' ? cardHtmlPresale(liveEv) : cardHtmlStandard(liveEv);
+    }).join('')}</div>`;
   });
   listRoot.innerHTML = html;
 }
@@ -3157,18 +3269,25 @@ function renderSearchResults(query){
 // first heading starting with it, similar to a contacts app. Letters
 // with nothing to jump to are shown disabled rather than hidden, so the
 // strip's shape stays predictable.
-function azJumpBarHtml(groups){
-  const available = new Set();
-  groups.forEach(g => {
-    const first = (g.heading || '').trim().charAt(0).toUpperCase();
-    if(first) available.add(/[A-Z]/.test(first) ? first : '#');
-  });
-  const letters = ['#', ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('')];
-  const buttons = letters.map(l => {
-    const has = available.has(l);
-    return `<button type="button" class="az-jump-btn" data-letter="${l}" ${has ? '' : 'disabled'}>${l}</button>`;
+// Jump bar showing actual heading names (artists on Name sort, venues on
+// Venue sort) instead of A-Z letters — pin the ones you check often for
+// a short, always-visible shortlist; "Show all" expands to every heading
+// currently in the list so you can pin more or jump to something unpinned
+// without leaving this view.
+function nameJumpBarHtml(groups){
+  const available = groups.filter(g => g.showHeading && g.heading && g.heading.trim());
+  if(!available.length) return '';
+  const toShow = jumpBarExpanded ? available : available.filter(g => pinnedJumpNames.has(g.heading));
+  const buttons = toShow.map(g => {
+    const isPinned = pinnedJumpNames.has(g.heading);
+    return `<button type="button" class="jump-name-btn" data-jump-heading="${escapeHtml(g.heading)}">
+      <span class="jump-name-star ${isPinned ? 'pinned' : ''}" data-action="jump-pin-toggle" data-jump-heading="${escapeHtml(g.heading)}" title="${isPinned ? 'Unpin' : 'Pin for quick access'}">${isPinned ? '★' : '☆'}</span>
+      <span class="jump-name-label">${escapeHtml(g.heading)}</span>
+    </button>`;
   }).join('');
-  return `<div class="az-jump-bar">${buttons}</div>`;
+  const hint = (!jumpBarExpanded && !toShow.length) ? `<span class="jump-bar-hint">Tap Show all, then a star, to pin names here for quick jumps</span>` : '';
+  const toggleBtn = `<button type="button" class="jump-bar-toggle" data-action="jump-bar-toggle">${jumpBarExpanded ? '– Show pinned only' : `☆ Show all (${available.length})`}</button>`;
+  return `<div class="jump-bar name-jump-bar">${buttons}${hint}${toggleBtn}</div>`;
 }
 
 function renderStandard(){
@@ -3218,10 +3337,34 @@ function renderStandard(){
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
   if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
-    htmlParts.push(azJumpBarHtml(groups));
+    htmlParts.push(nameJumpBarHtml(groups));
   }
   if(pinned.length){
-    htmlParts.push(`${dayHeadingHtml('📌 Pinned')}<div class="day-grid pinned-grid">${pinned.map(cardHtmlStandard).join('')}</div>`);
+    // Pinned events get the same organization as everything else — e.g.
+    // grouped by artist when sorted by name — instead of one flat block,
+    // so a long pinned list is still easy to scan.
+    const pinnedGroups = sortMode === 'upload' ? groupByUploadOrder(pinned)
+      : sortMode === 'venue' ? groupByVenue(pinned)
+      : sortMode === 'name' ? groupByName(pinned)
+      : sortMode === 'rating' ? groupByRating(pinned)
+      : groupByDate(pinned);
+    htmlParts.push(dayHeadingHtml('📌 Pinned'));
+    let pinnedPending = [];
+    const flushPinnedGrid = () => {
+      if(pinnedPending.length){
+        htmlParts.push(`<div class="day-grid pinned-grid">${pinnedPending.join('')}</div>`);
+        pinnedPending = [];
+      }
+    };
+    pinnedGroups.forEach(g => {
+      if(g.showHeading){
+        flushPinnedGrid();
+        const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+        htmlParts.push(dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading));
+      }
+      g.events.forEach(ev => pinnedPending.push(cardHtmlStandard(ev)));
+    });
+    flushPinnedGrid();
   }
   let pendingCards = [];
   const flushGrid = () => {
@@ -3301,7 +3444,14 @@ function cardHtmlPresale(ev){
   const isSelected = selectMode && selectedKeys.has(key);
 
   const metaBits = [];
-  if(ev.code && ev.code.trim()) metaBits.push(`<span class="presale-meta-item">Code <b>${escapeHtml(ev.code)}</b></span>`);
+  if(ev.code && ev.code.trim()){
+    metaBits.push(`<span class="presale-meta-item">Code <b>${escapeHtml(ev.code)}</b>
+      <button type="button" class="copy-btn presale-meta-copy" data-href="${escapeHtml(ev.code)}" title="Copy code" aria-label="Copy code">
+        <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      </button>
+    </span>`);
+  }
   if(ev.publicSaleDateStr && ev.publicSaleDateStr.trim()) metaBits.push(`<span class="presale-meta-item">Public sale ${escapeHtml(formatCompactDateTime(ev.publicSaleDateStr))}</span>`);
   const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
 
@@ -3851,25 +4001,28 @@ function shiftBlockHtml(ev, shift){
 // the same card, each with its own links/star/pin/notes. A shift with no
 // session that date just isn't rendered — no empty placeholder eating
 // space, and the card only takes up as much room as it actually needs.
-function dnMergedCardHtml(row){
+function dnMergedCardHtml(row, labelOverride){
   const blocks = [];
   row.day.forEach(ev => blocks.push(shiftBlockHtml(ev, 'day')));
   if(row.day.length && row.night.length) blocks.push('<div class="shift-divider"></div>');
   row.night.forEach(ev => blocks.push(shiftBlockHtml(ev, 'night')));
   return `
     <div class="ticket dn-merged">
-      <div class="dn-merged-date">${escapeHtml(row.label)}</div>
+      <div class="dn-merged-date">${escapeHtml(labelOverride || row.label)}</div>
       ${blocks.join('')}
     </div>`;
 }
 
 // Renders one category's (venue's) worth of dates as a grid of merged
-// Day+Night cards, honoring the column-count control.
-function dnRowsHtml(events){
+// Day+Night cards, honoring the column-count control. When the section
+// heading above already says the date (Broadway's "by date" sort), pass
+// labelOverride (typically the show name) so the card doesn't just repeat
+// the same date a second time right below it.
+function dnRowsHtml(events, labelOverride){
   const day = sortByDateAsc(events.filter(ev => classifyShift(ev) === 'day'));
   const night = sortByDateAsc(events.filter(ev => classifyShift(ev) === 'night'));
   const rows = buildDateRows(day, night);
-  return `<div class="day-grid">${rows.map(dnMergedCardHtml).join('')}</div>`;
+  return `<div class="day-grid">${rows.map(row => dnMergedCardHtml(row, labelOverride)).join('')}</div>`;
 }
 
 
@@ -3944,14 +4097,120 @@ function renderUsOpen(){
   listRoot.innerHTML = html;
 }
 
+// Broadway touring shows also run matinee/evening performances, so cards
+// merge the same way US Open's Day/Night sessions do — but unlike US
+// Open (always grouped by venue category), you actually care about
+// finding things two different ways here: by show name most of the
+// time, by date when you're checking a specific day. So this keeps the
+// full Standard sort dropdown (name/date/venue/rating/upload) instead of
+// locking to one grouping.
+//
+// Whatever the top-level grouping is, a merged Day/Night card only makes
+// sense for sessions of the SAME show — so within each top-level group,
+// events are further split into per-show subgroups (via groupByName,
+// which already handles the artist-name-merging logic) before building
+// the merged cards. When the top grouping IS by name, that inner split is
+// a no-op; when it's by date/venue/rating, it keeps different shows that
+// happen to land in the same bucket from getting merged into one card.
+function renderBroadway(){
+  const query = searchInput.value.trim().toLowerCase();
+  const hasData = allEvents.length > 0;
+  emptyState.style.display = hasData ? 'none' : 'block';
+  clearBtn.style.display = hasData ? 'block' : 'none';
+
+  if(!hasData){
+    listRoot.innerHTML = '';
+    countLabel.textContent = '';
+    return;
+  }
+
+  let filtered = allEvents.filter(ev => {
+    if(!matchesSearch(ev, query)) return false;
+    const ann = getAnnotation(eventKey(ev));
+    if(archiveOnly) return !!ann.archived;
+    if(ann.archived) return false;
+    if(hotOnly && !ann.rating) return false;
+    if(newOnly && !ann.isNew) return false;
+    return true;
+  });
+
+  countLabel.textContent = `${filtered.length} of ${allEvents.length}`;
+
+  const pinned = filtered.filter(ev => getAnnotation(eventKey(ev)).pinned);
+  const rest = filtered.filter(ev => !getAnnotation(eventKey(ev)).pinned);
+
+  if(!pinned.length && !rest.length){
+    listRoot.innerHTML = '<div class="no-results">No shows match your search.</div>';
+    return;
+  }
+
+  const topGroups = sortMode === 'upload' ? groupByUploadOrder(rest)
+    : sortMode === 'venue' ? groupByVenue(rest)
+    : sortMode === 'rating' ? groupByRating(rest)
+    : sortMode === 'date' ? groupByDate(rest)
+    : groupByName(rest); // 'name' and default
+
+  let html = '';
+  if((sortMode === 'name' || sortMode === 'venue') && topGroups.some(g => g.showHeading)){
+    html += nameJumpBarHtml(topGroups);
+  }
+
+  if(pinned.length){
+    // Pinned sessions stay as individual shift cards (not merged) since
+    // pinning is a per-session action — same reasoning US Open's pinned
+    // block uses — but organized the same way the rest of the list is.
+    const pinnedGroups = sortMode === 'upload' ? groupByUploadOrder(pinned)
+      : sortMode === 'venue' ? groupByVenue(pinned)
+      : sortMode === 'rating' ? groupByRating(pinned)
+      : sortMode === 'date' ? groupByDate(pinned)
+      : groupByName(pinned);
+    html += dayHeadingHtml('📌 Pinned');
+    let pinnedPending = [];
+    const flushPinnedGrid = () => {
+      if(pinnedPending.length){
+        html += `<div class="day-grid pinned-grid">${pinnedPending.join('')}</div>`;
+        pinnedPending = [];
+      }
+    };
+    pinnedGroups.forEach(g => {
+      if(g.showHeading){
+        flushPinnedGrid();
+        const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading);
+      }
+      g.events.forEach(ev => pinnedPending.push(pinnedCardHtml(ev)));
+    });
+    flushPinnedGrid();
+  }
+
+  const now = new Date();
+  topGroups.forEach(g => {
+    const firstEv = g.events[0];
+    const isToday = g.heading && firstEv && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now) && sortMode === 'date';
+    if(g.showHeading){
+      const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys);
+    }
+    // Split into per-show subgroups so a merged card never mixes two
+    // different shows' sessions together. When already grouped by date,
+    // show the show's name on the card instead of repeating the date
+    // that's already the section heading right above.
+    groupByName(g.events).forEach(showGroup => {
+      html += dnRowsHtml(showGroup.events, sortMode === 'date' ? showGroup.heading : null);
+    });
+  });
+
+  listRoot.innerHTML = html;
+}
+
 // Every heading (date/venue/name group in Standard mode, category or
 // Pinned in US Open mode) is immediately followed by its .day-grid, so
 // collapsing is pure CSS: a "collapsed" class on the heading hides the
 // very next .day-grid via an adjacent-sibling rule. The section key is
 // just the heading text — unique within a given render in every case
 // this app produces one.
-function dayHeadingHtml(label, extraHtml = '', pinKeys = null){
-  const key = label;
+function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverride = null){
+  const key = sectionKeyOverride || label;
   const collapsed = collapsedSections.has(key);
   let pinBtn = '';
   if(pinKeys && pinKeys.length){
@@ -4109,15 +4368,32 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
-  const azBtn = e.target.closest('.az-jump-btn');
-  if(azBtn){
-    if(azBtn.disabled) return;
-    const letter = azBtn.dataset.letter;
+  // Star inside a jump-bar button — toggles that heading's pinned-for-
+  // quick-access state. Checked before the jump-name-btn handler below
+  // since the star lives inside that button and would otherwise also
+  // trigger a scroll-to on the same click.
+  const jumpPinStar = e.target.closest('[data-action="jump-pin-toggle"]');
+  if(jumpPinStar){
+    const heading = jumpPinStar.dataset.jumpHeading;
+    if(pinnedJumpNames.has(heading)) pinnedJumpNames.delete(heading);
+    else pinnedJumpNames.add(heading);
+    savePinnedJumpNames();
+    render();
+    return;
+  }
+
+  const jumpBarToggle = e.target.closest('[data-action="jump-bar-toggle"]');
+  if(jumpBarToggle){
+    jumpBarExpanded = !jumpBarExpanded;
+    render();
+    return;
+  }
+
+  const jumpNameBtn = e.target.closest('.jump-name-btn');
+  if(jumpNameBtn){
+    const heading = jumpNameBtn.dataset.jumpHeading;
     const headings = Array.from(listRoot.querySelectorAll('.day-heading[data-section]'));
-    const target = headings.find(h => {
-      const first = (h.dataset.section || '').trim().charAt(0).toUpperCase();
-      return letter === '#' ? !/[A-Z]/.test(first) : first === letter;
-    });
+    const target = headings.find(h => (h.dataset.section || '') === heading);
     if(target){
       // Expand it first if it happened to be collapsed, so jumping there
       // actually shows something instead of landing on a closed heading.
