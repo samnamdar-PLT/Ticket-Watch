@@ -274,6 +274,38 @@
   .day-heading.collapsible-heading.collapsed .collapse-caret{transform:rotate(-90deg);}
   .day-heading.collapsible-heading.collapsed + .day-grid{display:none;}
   .day-heading.collapsible-heading.collapsed{opacity:.7;}
+  /* Presale's "By presale time" view nests two heading levels — the
+     hour ("10:00 AM presale") and, inside it, each artist. They used to
+     share the exact same heading style, which made the hierarchy
+     invisible at a glance; you couldn't tell where one hour ended and
+     the next began without reading every heading's text. Each hour now
+     gets a full-height colored band down its left edge (--hour-color,
+     set inline per band so consecutive hours cycle through different
+     colors) that the hour heading, every artist sub-heading, and every
+     card row all sit inside — an unmistakable "still in the same hour"
+     vs "new hour" visual cue while scrolling, independent of the text
+     itself. */
+  .presale-hour-band{
+    border-left:3px solid var(--hour-color, var(--hairline));
+    padding-left:16px;margin:0 0 22px -3px;
+  }
+  .day-heading.hour-heading{
+    background:transparent;border:none;padding:6px 4px 8px;margin:0 0 4px;
+    font-size:24px;color:var(--hour-color, var(--text));
+  }
+  .day-heading.hour-heading .collapse-caret{color:var(--hour-color, var(--text));opacity:.75;}
+  /* Artist sub-heading: deliberately smaller, plainer, and indented
+     relative to the hour heading above it, so it reads as nested content
+     rather than a second heading at the same level. */
+  .day-heading.artist-subheading{
+    font-family:'Inter',sans-serif;font-weight:700;font-size:13px;letter-spacing:0;
+    text-transform:none;color:var(--muted);
+    background:transparent;border:none;
+    padding:4px 4px 4px 10px;margin:2px 0 8px;
+    border-left:2px solid var(--hairline);
+  }
+  .day-heading.artist-subheading:hover .heading-label{color:var(--text);}
+  .day-heading.artist-subheading .collapse-caret{width:10px;height:10px;}
   .heading-pin-btn{
     margin-left:auto;flex:0 0 auto;
     width:26px;height:26px;border-radius:6px;border:1px solid transparent;
@@ -1422,6 +1454,11 @@ function updateModeUI(){
   const isBroadway = mode === 'broadway';
   eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : isBroadway ? 'Broadway Mode' : 'Ticket List';
   hotFilterBtn.style.display = 'inline-flex';
+  // Presale is a fast-moving, constantly-re-uploaded sheet — cards there
+  // never show the NEW badge (too much visual noise/clicking-to-dismiss
+  // for something you expect to change every time you touch it), so a
+  // "New only" filter would just be filtering by something invisible.
+  newFilterBtn.style.display = isPresale ? 'none' : 'inline-flex';
   // US Open always groups by venue category, so its sort dropdown would
   // do nothing — Broadway keeps the dropdown, since which show and which
   // date matter differently show to show and it's worth being able to
@@ -3328,12 +3365,22 @@ function renderPresale(){
     // be months apart). No presale data just means no jump strip here.
     html += presaleTimeJumpBarHtml(groups);
   }
+  // Cycling accent colors for presale time bands — each hour gets its
+  // own color that runs down the left edge of everything in it (heading,
+  // every artist sub-heading, every card row), so scrolling past a color
+  // change is an unmistakable "new hour starts here" cue, not just
+  // another identical-looking heading. Picked for contrast against each
+  // other and against the app's existing teal/amber/pink accent colors.
+  const HOUR_BAND_COLORS = ['#4fc8bf', '#e8846b', '#a78bfa', '#6fcf7f', '#f2c14e', '#5b9bd5', '#e879a8', '#c9a869'];
+  let hourBandIndex = 0;
   groups.forEach(g => {
     const firstEv = g.events[0];
     const isToday = g.showTodayTag && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now);
+    const isHourBand = sortMode === 'date';
+    if(isHourBand) html += `<div class="presale-hour-band" style="--hour-color:${HOUR_BAND_COLORS[hourBandIndex++ % HOUR_BAND_COLORS.length]}">`;
     if(g.showHeading){
       const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys);
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys, null, isHourBand ? 'hour-heading' : '');
     }
     if(sortMode === 'date'){
       // Within a single presale-time (or show-date-fallback) bucket,
@@ -3344,12 +3391,16 @@ function renderPresale(){
       // own sub-heading, same pattern as the Pinned section elsewhere —
       // a compound section key keeps its collapse state independent of
       // an identically-named heading anywhere else on the sheet.
+      // Styled visibly smaller/indented (artist-subheading) so it reads
+      // as nested under the hour heading above it, not a second peer
+      // heading at the same level.
       groupByName(g.events).forEach(nameGroup => {
         if(nameGroup.showHeading){
-          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading);
+          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading, 'artist-subheading');
         }
         html += `<div class="day-grid" ${colStyle}>${nameGroup.events.map(cardHtmlPresale).join('')}</div>`;
       });
+      html += '</div>'; // .presale-hour-band
     } else {
       html += `<div class="day-grid" ${colStyle}>${g.events.map(cardHtmlPresale).join('')}</div>`;
     }
@@ -3664,12 +3715,11 @@ function cardHtmlPresale(ev){
   const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
 
   return `
-    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="ticket-header-row">
         ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
         <div class="ticket-toolbar">
-          ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
           </button>
@@ -4421,7 +4471,7 @@ function renderBroadway(){
 // very next .day-grid via an adjacent-sibling rule. The section key is
 // just the heading text — unique within a given render in every case
 // this app produces one.
-function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverride = null){
+function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverride = null, extraClass = ''){
   const key = sectionKeyOverride || label;
   const collapsed = collapsedSections.has(key);
   let pinBtn = '';
@@ -4431,7 +4481,7 @@ function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverrid
       <svg width="14" height="14" viewBox="0 0 24 24" fill="${allPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
     </button>`;
   }
-  return `<div class="day-heading collapsible-heading ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
+  return `<div class="day-heading collapsible-heading ${extraClass} ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
     <svg class="collapse-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
     <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}${pinBtn}
   </div>`;
