@@ -62,25 +62,6 @@
   html[data-density="tiny"] .ticket-header-row{flex-wrap:wrap;row-gap:0;}
   html[data-density="tiny"] .ticket-header-row .dn-merged-date{flex:1 1 100%;padding-bottom:2px;}
   html[data-density="tiny"] .ticket-header-row .ticket-toolbar{flex:1 1 100%;justify-content:flex-start;flex-wrap:wrap;row-gap:2px;padding:0 6px 4px 14px;}
-  /* At compact/tiny density (7+ columns), even a single short link
-     button plus its fixed-width copy icon is wide enough to just barely
-     still fit beside the title — never quite triggering flex-wrap's
-     natural fallback, but still eating enough width to crowd/truncate
-     the title uncomfortably. Forcing info-above-actions here (same
-     pattern as the phone layout below) sidesteps that entirely: the
-     title always gets the card's full width, and the link buttons lay
-     out in a row underneath instead of a cramped side column.
-     This is keyed to the card's actual rendered width via a container
-     query (see container-type on .ticket), not to the column-count
-     setting — a card can end up exactly this narrow either from a high
-     column count on a wide screen OR a normal column count on a
-     smaller/narrower window, and both need the same fix. */
-  @container (max-width: 260px){
-    .ticket-main{flex-direction:column;}
-    .ticket-actions{flex-direction:row;flex-wrap:wrap;}
-    .link-row{flex:1 1 auto;}
-    .shift-block-main{flex-direction:column;align-items:stretch;}
-  }
 
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
@@ -935,6 +916,39 @@
      MOBILE + TABLET — everything below is scoped to max-width
      media queries and never affects desktop layout/sizing.
      ============================================================ */
+
+  /* At compact/tiny density (7+ columns), even a single short link
+     button plus its fixed-width copy icon is wide enough to just barely
+     still fit beside the title — never quite triggering flex-wrap's
+     natural fallback, but still eating enough width to crowd/truncate
+     the title uncomfortably. Forcing info-above-actions here (same
+     pattern as the phone layout below) sidesteps that entirely: the
+     title always gets the card's full width, and the link buttons lay
+     out in a row underneath instead of a cramped side column.
+     This is keyed to the card's actual rendered width via a container
+     query (see container-type on .ticket), not to the column-count
+     setting — a card can end up exactly this narrow either from a high
+     column count on a wide screen OR a normal column count on a
+     smaller/narrower window, and both need the same fix.
+     IMPORTANT: this must be declared AFTER the base .ticket-main /
+     .ticket-actions / .link-row rules above — with equal selector
+     specificity, source order decides the winner, and a container query
+     placed earlier in the file loses to a later plain rule even when its
+     condition is true. Keep this block below all of those. */
+  @container (max-width: 260px){
+    /* flex-wrap:wrap on .ticket-main (from the base rule, meant for the
+       side-by-side row layout) interacts badly with flipping to a
+       column direction: a wrapped column-direction flex container sizes
+       each line to its content's own width instead of stretching to the
+       container, which is exactly how ticket-actions ended up wider
+       than the card itself. There are only ever two children here
+       (info, actions) stacked vertically, so wrapping was never doing
+       anything useful in this mode anyway — just turn it off. */
+    .ticket-main{flex-direction:column;flex-wrap:nowrap;}
+    .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
+    .link-row{flex:1 1 auto;min-width:0;}
+    .shift-block-main{flex-direction:column;align-items:stretch;}
+  }
 
   /* ---------- Phones (≤560px) ---------- */
   @media (max-width:560px){
