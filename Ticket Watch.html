@@ -921,6 +921,15 @@
     transition:border-color .15s ease,background .15s ease,color .15s ease;
   }
   .jump-name-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.08);}
+  /* Pinned pills sort to the front and get filled solid yellow — meant
+     to read as "starred/favorited", unmistakably different from the
+     plain outlined pills around it, not just a differently-colored star
+     inside an otherwise identical pill. */
+  .jump-name-btn.pinned{
+    background:var(--pin);border-color:var(--pin);color:#141316;
+  }
+  .jump-name-btn.pinned:hover{background:var(--pin);filter:brightness(1.08);}
+  .jump-name-btn.pinned .jump-name-star{color:#141316;}
   .jump-name-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .jump-name-star{
     flex:0 0 auto;color:var(--muted);font-size:13px;line-height:1;
@@ -1422,7 +1431,12 @@ function updateModeUI(){
   // sheet (see groupByPresaleOrShowDate) — the plain "By date" label
   // doesn't make that obvious, so it's easy to assume the hourly-drop
   // view doesn't exist when it's actually already the default.
-  if(sortDateOption) sortDateOption.textContent = isPresale ? 'By presale time' : 'By date';
+  // Only claim "By presale time" when this sheet's events actually have
+  // a real presale time set — groupByPresaleOrShowDate silently falls
+  // back to each event's own show date otherwise, and labeling that
+  // fallback "presale time" would be actively wrong, not just vague.
+  const hasPresaleTimes = isPresale && allEvents.some(e => e.presaleDateObj);
+  if(sortDateOption) sortDateOption.textContent = hasPresaleTimes ? 'By presale time' : 'By date';
   uploadBtn.textContent = 'Add CSV';
   emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : isBroadway ? '🎭' : '🎟️';
   if(isUsOpen){
@@ -3304,7 +3318,13 @@ function renderPresale(){
     : groupByPresaleOrShowDate(rest);
   if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
     html += nameJumpBarHtml(groups);
-  } else if(sortMode === 'date'){
+  } else if(sortMode === 'date' && rest.some(e => e.presaleDateObj)){
+    // Only show this when real presale-time data actually exists —
+    // groupByPresaleOrShowDate silently falls back to grouping by each
+    // event's own SHOW date when a sheet has no presale times set, and
+    // rendering that fallback as a row of "presale time" pills would be
+    // actively misleading (a show date is not a presale time — they can
+    // be months apart). No presale data just means no jump strip here.
     html += presaleTimeJumpBarHtml(groups);
   }
   groups.forEach(g => {
@@ -3413,20 +3433,26 @@ function renderSearchResults(query){
 // a short, always-visible shortlist; "Show all" expands to every heading
 // currently in the list so you can pin more or jump to something unpinned
 // without leaving this view.
+// Every heading pill is always visible now — pinned ones just sort to
+// the front and get a filled yellow look, instead of everything but your
+// pins being hidden behind a "Show all" toggle. Clicking the star
+// pins/unpins (and re-sorts); clicking the rest of the pill jumps there.
 function nameJumpBarHtml(groups){
   const available = groups.filter(g => g.showHeading && g.heading && g.heading.trim());
-  if(!available.length) return '';
-  const toShow = jumpBarExpanded ? available : available.filter(g => pinnedJumpNames.has(g.heading));
-  const buttons = toShow.map(g => {
+  if(available.length < 2) return ''; // not worth a jump strip for just one heading
+  const sorted = [...available].sort((a, b) => {
+    const aPinned = pinnedJumpNames.has(a.heading), bPinned = pinnedJumpNames.has(b.heading);
+    if(aPinned !== bPinned) return aPinned ? -1 : 1;
+    return 0; // keep original (alphabetical/venue) order within each group
+  });
+  const buttons = sorted.map(g => {
     const isPinned = pinnedJumpNames.has(g.heading);
-    return `<button type="button" class="jump-name-btn" data-jump-heading="${escapeHtml(g.heading)}">
-      <span class="jump-name-star ${isPinned ? 'pinned' : ''}" data-action="jump-pin-toggle" data-jump-heading="${escapeHtml(g.heading)}" title="${isPinned ? 'Unpin' : 'Pin for quick access'}">${isPinned ? '★' : '☆'}</span>
+    return `<button type="button" class="jump-name-btn ${isPinned ? 'pinned' : ''}" data-jump-heading="${escapeHtml(g.heading)}">
+      <span class="jump-name-star ${isPinned ? 'pinned' : ''}" data-action="jump-pin-toggle" data-jump-heading="${escapeHtml(g.heading)}" title="${isPinned ? 'Unpin' : 'Pin to front'}">${isPinned ? '★' : '☆'}</span>
       <span class="jump-name-label">${escapeHtml(g.heading)}</span>
     </button>`;
   }).join('');
-  const hint = (!jumpBarExpanded && !toShow.length) ? `<span class="jump-bar-hint">Tap Show all, then a star, to pin names here for quick jumps</span>` : '';
-  const toggleBtn = `<button type="button" class="jump-bar-toggle" data-action="jump-bar-toggle">${jumpBarExpanded ? '– Show pinned only' : `☆ Show all (${available.length})`}</button>`;
-  return `<div class="jump-bar name-jump-bar">${buttons}${hint}${toggleBtn}</div>`;
+  return `<div class="jump-bar name-jump-bar">${buttons}</div>`;
 }
 
 // A plain always-visible strip of every drop-time heading currently on
