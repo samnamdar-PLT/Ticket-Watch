@@ -539,14 +539,14 @@
   .notes-preview.no-content{display:flex;align-items:center;justify-content:center;}
   .notes-plus{color:var(--muted);opacity:.3;font-size:15px;line-height:1;}
   .notes-preview.no-content:hover .notes-plus{opacity:.6;}
-  .notes-preview-topline{display:flex;align-items:center;gap:6px;min-width:0;}
+  .notes-preview-topline{display:flex;align-items:flex-start;gap:6px;min-width:0;}
   .preview-rating{font-size:12px;color:var(--rating);font-weight:700;flex:0 0 auto;}
   .note-preview-text{
     font-size:12px;color:var(--text);opacity:.85;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    white-space:pre-wrap;word-break:break-word;
     flex:1 1 auto;min-width:0;
   }
-  .note-preview-icon{flex:0 0 auto;opacity:.6;font-size:11px;}
+  .note-preview-icon{flex:0 0 auto;opacity:.6;font-size:11px;margin-top:1px;}
   .notes-panel{
     border:1px solid var(--teal);
     padding:14px 16px 14px;
@@ -3201,36 +3201,37 @@ function render(){
   refreshNavigation();
 }
 
-// Groups by presale/drop date+time when that data exists — matching how
-// a presale tracker sheet is actually organized ("these drop at 11 AM,
-// these drop at noon..."), which is the moment you need to act, not the
-// eventual show date. Falls back to grouping by show date for sheets
-// that don't have presale-date data (e.g. cards added by hand).
+// Groups by presale/drop TIME OF DAY when that data exists — matching
+// how a presale tracker sheet is actually organized ("these drop at 11
+// AM, these drop at noon..."). The calendar date isn't part of the
+// grouping at all: drops recur at the same handful of times (10, 11,
+// noon...) across many different dates, and a heading like "Monday,
+// August 17 · 11:00 AM presale" made it look like the date mattered —
+// it doesn't, only the time slot does, so events dropping at 11 AM on
+// any date all land in one "11:00 AM presale" group together. Falls
+// back to grouping by show date for sheets that don't have any
+// presale-date data at all (e.g. cards added by hand).
 function groupByPresaleOrShowDate(events){
   if(!events.some(e => e.presaleDateObj)) return groupByDate(events);
 
-  const withDate = events.filter(e => e.presaleDateObj).sort((a, b) => new Date(a.presaleDateObj) - new Date(b.presaleDateObj));
+  const withDate = events.filter(e => e.presaleDateObj);
   const withoutDate = events.filter(e => !e.presaleDateObj);
 
-  const groups = [];
-  let currentKey = null, currentGroup = null;
+  const buckets = new Map(); // minutesSinceMidnight -> events[]
   withDate.forEach(ev => {
     const d = new Date(ev.presaleDateObj);
-    const key = d.toISOString().slice(0, 16); // groups to the minute — the actual drop time
-    if(key !== currentKey){
-      currentKey = key;
-      // A placeholder-year date means this presale time came from a bare
-      // "11:00 AM" style header row with no real date attached (see
-      // parseEventDate) — show just the time, not a fabricated date.
-      const heading = d.getFullYear() === PRESALE_TIME_ONLY_YEAR
-        ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale'
-        : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-          + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale';
-      currentGroup = { heading, showHeading: true, showTodayTag: false, events: [] };
-      groups.push(currentGroup);
-    }
-    currentGroup.events.push(ev);
+    const minutesSinceMidnight = d.getHours() * 60 + d.getMinutes();
+    if(!buckets.has(minutesSinceMidnight)) buckets.set(minutesSinceMidnight, { sampleDate: d, events: [] });
+    buckets.get(minutesSinceMidnight).events.push(ev);
   });
+
+  const groups = [...buckets.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, bucket]) => ({
+      heading: bucket.sampleDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale',
+      showHeading: true, showTodayTag: false, events: bucket.events
+    }));
+
   if(withoutDate.length){
     groups.push({ heading: 'No presale time set', showHeading: true, showTodayTag: false, events: withoutDate });
   }
@@ -3334,7 +3335,24 @@ function renderPresale(){
       const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
       html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys);
     }
-    html += `<div class="day-grid" ${colStyle}>${g.events.map(cardHtmlPresale).join('')}</div>`;
+    if(sortMode === 'date'){
+      // Within a single presale-time (or show-date-fallback) bucket,
+      // further split by artist/event — a card grid mixing Brett
+      // Goldstein, Luke Combs, Sting, and Jonas Brothers all together
+      // under one "10:00 AM" heading is hard to scan even though they
+      // all genuinely belong in that time slot together. Each gets its
+      // own sub-heading, same pattern as the Pinned section elsewhere —
+      // a compound section key keeps its collapse state independent of
+      // an identically-named heading anywhere else on the sheet.
+      groupByName(g.events).forEach(nameGroup => {
+        if(nameGroup.showHeading){
+          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading);
+        }
+        html += `<div class="day-grid" ${colStyle}>${nameGroup.events.map(cardHtmlPresale).join('')}</div>`;
+      });
+    } else {
+      html += `<div class="day-grid" ${colStyle}>${g.events.map(cardHtmlPresale).join('')}</div>`;
+    }
   });
 
   listRoot.innerHTML = html;
@@ -4002,9 +4020,11 @@ function notesPreviewHtml(ann, key){
     topLine.push(`<span class="preview-rating">⭐${ann.rating}</span>`);
   }
   if(ann.note && ann.note.trim()){
-    const trimmed = ann.note.trim();
-    const short = trimmed.length > 60 ? trimmed.slice(0, 60) + '…' : trimmed;
-    topLine.push(`<span class="note-preview-icon">📝</span><span class="note-preview-text">${escapeHtml(short)}</span>`);
+    // Full note, not a truncated preview — this is the only place a note
+    // shows up outside the panel, and cutting it off with "…" makes the
+    // exact information you'd open the card for invisible until you
+    // click in.
+    topLine.push(`<span class="note-preview-icon">📝</span><span class="note-preview-text">${escapeHtml(ann.note.trim())}</span>`);
   }
   if(topLine.length) parts.push(`<div class="notes-preview-topline">${topLine.join('')}</div>`);
   const priced = (ann.sections || []).filter(s => s.label && s.label.trim() && s.price && s.price.trim());
