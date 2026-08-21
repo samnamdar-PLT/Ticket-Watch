@@ -431,7 +431,6 @@
   .ev-venue{
     font-size:var(--f-venue);color:var(--text);opacity:.78;
     line-height:1.35;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   }
   .ev-time{
     font-family:'IBM Plex Mono',monospace;
@@ -499,6 +498,15 @@
     padding:0;
     transition:background .15s ease, color .15s ease, border-color .15s ease;
   }
+  /* The link button opens an external site; the copy button is what
+     actually gets used most of the time (grab the link, paste it
+     elsewhere). Scoped to .link-row specifically so it doesn't touch
+     the small standalone copy icons used elsewhere (presale code, etc).
+     flex-basis:0 on both means the split holds at a consistent ~55/45
+     ratio regardless of card width, instead of the copy button staying
+     pinned to one fixed pixel width no matter how much room there is. */
+  .link-row .link-btn{flex:11 1 0%;}
+  .link-row .copy-btn{flex:9 0 0%;width:auto;min-width:34px;}
   .copy-btn:hover{color:var(--bg);border-color:var(--teal);background:var(--teal);}
   .copy-btn .icon-check{display:none;}
   .copy-btn.copied{color:var(--bg);border-color:var(--teal);background:var(--teal);}
@@ -945,6 +953,15 @@
        (info, actions) stacked vertically, so wrapping was never doing
        anything useful in this mode anyway — just turn it off. */
     .ticket-main{flex-direction:column;flex-wrap:nowrap;}
+    /* .ticket-info's flex:1 1 var(--minw-info) exists to grow
+       HORIZONTALLY and fill leftover width in the normal side-by-side
+       layout. Once ticket-main is a column, that same flex-grow instead
+       pulls it to fill any leftover VERTICAL space — e.g. when a grid
+       row's height gets stretched to match a taller neighboring card —
+       shoving the link buttons down and opening a gap under the venue
+       text for no reason. It only ever needs to be as tall as its own
+       text here, not fill the card. */
+    .ticket-info{flex:0 0 auto;}
     .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
     .link-row{flex:1 1 auto;min-width:0;}
     .shift-block-main{flex-direction:column;align-items:stretch;}
@@ -957,6 +974,7 @@
     .shift-block .ticket-actions{min-width:0;}
     .day-grid{grid-template-columns:1fr;}
     .ticket-main{flex-direction:column;}
+    .ticket-info{flex:0 0 auto;} /* same fix as the container query above — don't stretch vertically */
     .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
     .link-row{flex:1 1 30%;}
 
@@ -3066,7 +3084,12 @@ function groupByRating(events){
 function render(){
   const query = searchInput.value.trim();
   if(query){
-    sortSelect.style.display = 'none';
+    updateModeUI();
+    // US Open has no sort dropdown at all, even outside search (it's
+    // always grouped by venue category) — everywhere else, search now
+    // honors the current sort mode, so the dropdown should stay usable
+    // instead of vanishing just because you're searching.
+    sortSelect.style.display = activeSheetMode() === 'usopen' ? 'none' : 'inline-block';
     renderSearchResults(query);
     refreshNavigation();
     return;
@@ -3259,18 +3282,29 @@ function renderSearchResults(query){
     return;
   }
 
-  const cols = Math.min(columnCount, 4); // search cards carry more info per card, same reasoning as presale
+  // Search used to force its own layout — capped columns, always grouped
+  // by name — regardless of whatever view you'd set up. That's a jarring
+  // switch right when you're trying to find something. Now it just
+  // reuses your actual column count and current sort mode, so searching
+  // shows the same kind of view you already had, just filtered down.
   let html = '';
-  groupByName(matched).forEach(g => {
-    const pinKeys = g.events.map(ev => eventKey(ev));
-    html += dayHeadingHtml(g.heading, '', pinKeys);
+  const searchGroups = sortMode === 'upload' ? groupByUploadOrder(matched)
+    : sortMode === 'venue' ? groupByVenue(matched)
+    : sortMode === 'rating' ? groupByRating(matched)
+    : sortMode === 'date' ? groupByDate(matched)
+    : groupByName(matched); // 'name' and default
+  searchGroups.forEach(g => {
+    if(g.showHeading){
+      const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
+      html += dayHeadingHtml(g.heading, '', pinKeys);
+    }
     // Show each result the way its own sheet actually shows it — a
     // presale event still needs its Code/public-sale-date field visible
     // and copyable, not the plain standard card it'd otherwise fall back
     // to. (US Open sessions stay on the standard card here since pairing
     // up a matching Day/Night session across a cross-sheet search result
     // is out of scope — that pairing only exists within its own sheet.)
-    html += `<div class="day-grid" style="--cols:${cols};">${g.events.map(ev => {
+    html += `<div class="day-grid">${g.events.map(ev => {
       const liveEv = searchAnnotationsMap.get(eventKey(ev)).ev;
       return liveEv.__mode === 'presale' ? cardHtmlPresale(liveEv) : cardHtmlStandard(liveEv);
     }).join('')}</div>`;
