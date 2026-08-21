@@ -2012,6 +2012,12 @@ function inferSiteFromUrl(url){
   }catch(e){ return ''; }
 }
 
+// Placeholder year used only for presale times that have no real calendar
+// date attached (see parseEventDate's bare-time pattern below). Picked to
+// be nowhere near any real event year so it's unambiguous wherever it's
+// checked for.
+const PRESALE_TIME_ONLY_YEAR = 1904;
+
 function parseEventDate(str){
   if(!str) return null;
   // "9:00PM" (no space before AM/PM) silently breaks native Date parsing
@@ -2058,6 +2064,28 @@ function parseEventDate(str){
   if(/^\d{4}-\d{2}-\d{2}T/.test(str)){
     const iso = new Date(str);
     if(!isNaN(iso.getTime())) return iso;
+  }
+
+  // A bare time with no date at all — "11:00 AM", "8:00 AM", "1:00 PM".
+  // Some presale trackers organize the sheet as a block of events under
+  // a bare-time header row ("11:00 AM" on its own line) rather than a
+  // dedicated Presale Date column per row — there's genuinely no
+  // calendar date attached, just a time-of-day. Rather than fail to
+  // parse (which is what a plain new Date("11:00 AM") does), anchor it
+  // to a fixed placeholder day so every "11:00 AM" parses to the same
+  // instant and sorts/groups correctly against every other bare-time
+  // value — groupByPresaleOrShowDate recognizes this placeholder year
+  // and labels the heading with just the time, never a fake date.
+  // This only ever matches a standalone time string with no date
+  // component, so it can't interfere with the show-date column's own
+  // section-header skip check in recordsFromCSV.
+  m = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if(m){
+    const [, hour, minute, ampm] = m;
+    let h = parseInt(hour, 10);
+    if(ampm.toUpperCase() === 'PM' && h !== 12) h += 12;
+    if(ampm.toUpperCase() === 'AM' && h === 12) h = 0;
+    return new Date(PRESALE_TIME_ONLY_YEAR, 0, 1, h, minute ? parseInt(minute, 10) : 0);
   }
 
   // Last resort: let the browser's own parser take a shot. This is what
@@ -2168,6 +2196,12 @@ function recordsFromCSV(text){
   }
 
   let lastSection = ''; // tracks bare-name rows like "Arthur Ashe" or "Grounds Passes"
+  // Some presale trackers don't have a dedicated Presale Date column at
+  // all — instead the sheet is organized as bare-time header rows
+  // ("8:00 AM" on its own line) with the events that drop at that time
+  // listed underneath. Tracks the most recent one so those events still
+  // get a presale time even without their own column for it.
+  let lastPresaleTimeLabel = '';
   const records = [];
 
   dataRows.forEach(row => {
@@ -2183,8 +2217,16 @@ function recordsFromCSV(text){
       // section/category label (e.g. "Arthur Ashe", "Grounds Passes", or
       // a bare drop-time header like "11:00 AM" in a presale tracker),
       // not an event — even if its lone value happens to sit in the same
-      // column normal rows use for the date.
-      lastSection = nonEmpty[0];
+      // column normal rows use for the date. A bare time-of-day label
+      // specifically becomes the presale-time fallback below; anything
+      // else (a real category name) becomes the venue fallback as before
+      // — they're tracked separately since a sheet can nest one inside
+      // the other (a category block containing several time sub-blocks).
+      if(/^\d{1,2}(?::\d{2})?\s*(AM|PM)$/i.test(nonEmpty[0])){
+        lastPresaleTimeLabel = nonEmpty[0];
+      } else {
+        lastSection = nonEmpty[0];
+      }
       return;
     }
 
@@ -2200,7 +2242,10 @@ function recordsFromCSV(text){
     if(!primarySite && primaryLink) primarySite = inferSiteFromUrl(primaryLink);
 
     const dateObj = parsedDate;
-    const presaleDateVal = presaleDateIdx !== -1 ? row[presaleDateIdx] : '';
+    // Prefer this row's own Presale Date column when there is one;
+    // otherwise fall back to the most recent bare-time header row above
+    // it (see lastPresaleTimeLabel).
+    const presaleDateVal = (presaleDateIdx !== -1 && row[presaleDateIdx]) ? row[presaleDateIdx] : lastPresaleTimeLabel;
     const presaleDateObj = presaleDateVal ? parseEventDate(presaleDateVal) : null;
 
     records.push({
@@ -3121,8 +3166,13 @@ function groupByPresaleOrShowDate(events){
     const key = d.toISOString().slice(0, 16); // groups to the minute — the actual drop time
     if(key !== currentKey){
       currentKey = key;
-      const heading = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-        + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale';
+      // A placeholder-year date means this presale time came from a bare
+      // "11:00 AM" style header row with no real date attached (see
+      // parseEventDate) — show just the time, not a fabricated date.
+      const heading = d.getFullYear() === PRESALE_TIME_ONLY_YEAR
+        ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale'
+        : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+          + ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' presale';
       currentGroup = { heading, showHeading: true, showTodayTag: false, events: [] };
       groups.push(currentGroup);
     }
