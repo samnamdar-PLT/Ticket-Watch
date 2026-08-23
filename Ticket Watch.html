@@ -41,17 +41,17 @@
      content still fits inside the same card height. Driven by
      data-density, set from the column count in applyColumnCount(). */
   :root, html[data-density="normal"]{
-    --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:20px;
+    --f-name:17px; --f-venue:14px; --f-time:13.5px; --f-date:20px; --f-badge:12.5px;
     --f-link:12px; --minw-info:160px; --minw-actions:190px;
     --copybtn-w:58px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
   }
   html[data-density="compact"]{
-    --f-name:13.5px; --f-venue:12px; --f-time:11.5px; --f-date:16px;
+    --f-name:14.5px; --f-venue:12px; --f-time:11.5px; --f-date:16px; --f-badge:10.5px;
     --f-link:11px; --minw-info:100px; --minw-actions:110px;
     --copybtn-w:38px; --icon-size:26px; --pad-card:6px 10px 8px; --f-chip:9.5px;
   }
   html[data-density="tiny"]{
-    --f-name:11.5px; --f-venue:10px; --f-time:9.5px; --f-date:12px;
+    --f-name:12px; --f-venue:10px; --f-time:9.5px; --f-date:12px; --f-badge:9px;
     --f-link:9.5px; --minw-info:64px; --minw-actions:64px;
     --copybtn-w:28px; --icon-size:20px; --pad-card:4px 6px 5px; --f-chip:8.5px;
   }
@@ -294,6 +294,15 @@
     font-size:24px;color:var(--hour-color, var(--text));
   }
   .day-heading.hour-heading .collapse-caret{color:var(--hour-color, var(--text));opacity:.75;}
+  /* The "+ .day-grid" rule above only ever hides an immediate next
+     sibling, which used to be enough since a heading was always
+     directly followed by its card grid. Now an hour-heading's next
+     siblings are artist sub-headings (each with its own grid after it),
+     so collapsing the hour heading toggled its own arrow but hid
+     nothing — the general-sibling combinator (~) reaches every sibling
+     that follows it within the same band, not just the first one,
+     which is what actually collapses the whole hour. */
+  .day-heading.hour-heading.collapsed ~ *{display:none;}
   /* Artist sub-heading: deliberately smaller, plainer, and indented
      relative to the hour heading above it, so it reads as nested content
      rather than a second heading at the same level. */
@@ -325,7 +334,14 @@
     border-left:4px solid transparent;
     border-radius:10px;
     overflow:hidden;
-    transition:border-color .15s ease;
+    /* A very slight resting shadow gives every card a hint of physical
+       depth instead of sitting perfectly flat against the page — subtle
+       enough not to read as decoration, but enough that the whole grid
+       feels like a stack of distinct objects rather than a flat table
+       with borders drawn on. Lifts slightly further on hover as a quiet
+       "this is interactive" cue. */
+    box-shadow:0 1px 2px rgba(0,0,0,.18), 0 1px 0 rgba(255,255,255,.02) inset;
+    transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;
     /* Lets .ticket-main below react to THIS card's actual rendered
        width, not the column-count setting or viewport size. Two cards
        can end up the exact same pixel width from very different causes
@@ -335,7 +351,7 @@
        of only the one the data-density heuristic happened to cover. */
     container-type:inline-size;
   }
-  .ticket:hover{border-color:#4a4950;}
+  .ticket:hover{border-color:#4a4950;box-shadow:0 4px 14px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.02) inset;}
   .ticket.shift-day{border-left-color:var(--day-color);background:var(--day-bg);}
   .ticket.shift-night{border-left-color:var(--night-color);background:var(--night-bg);}
   .ticket.is-pinned{border-color:var(--pin);border-left-color:var(--pin);}
@@ -383,6 +399,39 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .ticket-header-row .ticket-toolbar{padding:6px 6px 6px 0;flex:0 0 auto;}
+  /* ---------- Standard/presale card date badge ----------
+     The date used to be the loudest thing on the card (20px, full-width
+     bar) while the event name — the thing you're actually scanning
+     for — sat smaller underneath it. Flipped on purpose: the date is now
+     a compact chip that reads as metadata, not a heading, so the name
+     is unmistakably the primary line. Color is set per card "nature" via
+     the --badge-bg/--badge-border/--badge-text custom properties defined
+     on .ticket.mode-* below — same mechanism as the existing day/night
+     shift coloring, just applied to a badge instead of a border. */
+  .card-date-badge{
+    display:inline-flex;align-items:baseline;gap:6px;
+    font-family:'Bebas Neue',sans-serif;font-size:var(--f-badge);letter-spacing:.03em;
+    color:var(--badge-text, var(--muted));
+    background:var(--badge-bg, rgba(255,255,255,.04));
+    border:1px solid var(--badge-border, var(--hairline));
+    border-radius:6px;padding:4px 9px;
+    white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  }
+  .card-date-badge .badge-time{
+    font-family:'IBM Plex Mono',monospace;font-weight:600;
+    font-size:.86em;opacity:.85;
+  }
+  .ticket-header-row .card-date-badge{margin:10px 0 0 14px;flex:0 1 auto;min-width:0;}
+  .ticket:has(.select-check) .ticket-header-row .card-date-badge{margin-left:40px;}
+  .ticket-header-row:has(.card-date-badge){align-items:flex-start;}
+  .ticket-header-row .card-date-badge + .ticket-toolbar{padding-top:8px;}
+  /* Standard sheets: a plain neutral chip — the baseline "nothing
+     special" look. Presale: tinted amber, matching the amber accent
+     already used for codes and the presale-time hour bands elsewhere,
+     so a presale card visually announces itself as presale the instant
+     you see the badge, before reading a single word. */
+  .ticket.mode-standard{--badge-bg:rgba(255,255,255,.045);--badge-border:var(--hairline);--badge-text:var(--muted);}
+  .ticket.mode-presale-card{--badge-bg:rgba(212,163,55,.13);--badge-border:rgba(212,163,55,.4);--badge-text:var(--amber);}
   .shift-block{
     position:relative;
     border-top:1px solid var(--hairline);
@@ -507,12 +556,17 @@
     border-radius:6px;
     border:1px solid transparent;
     color:#141316;
-    transition:filter .15s ease, transform .1s ease;
+    /* Matches the card shell's own new shadow language — a soft rest
+       shadow and a bit more lift on hover — so the buttons read as part
+       of the same considered object as the card around them, not a
+       flat color swatch pasted on top of it. */
+    box-shadow:0 1px 2px rgba(0,0,0,.22);
+    transition:filter .15s ease, transform .1s ease, box-shadow .15s ease;
     white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;
   }
-  .link-btn:hover{filter:brightness(1.1);}
-  .link-btn:active{transform:scale(.98);}
+  .link-btn:hover{filter:brightness(1.1);box-shadow:0 2px 6px rgba(0,0,0,.3);}
+  .link-btn:active{transform:scale(.98);box-shadow:0 1px 2px rgba(0,0,0,.22);}
   .link-btn.site-tm{background:var(--tm-blue);color:#fff;}
   .link-btn.site-vivid{background:var(--vivid-pink);color:#fff;}
   .link-btn.site-stub{background:var(--stub-orange);color:#fff;}
@@ -524,6 +578,7 @@
     width:var(--copybtn-w);
     border-radius:6px;
     border:1px solid var(--hairline);
+    box-shadow:0 1px 2px rgba(0,0,0,.15);
     background:var(--card-hover);
     color:var(--text);
     cursor:pointer;
@@ -621,7 +676,7 @@
      otherwise a high column count on another sheet would leave presale
      cards stuck with tiny fonts despite having plenty of room. */
   .presale-card{
-    --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:20px;
+    --f-name:17px; --f-venue:14px; --f-time:13.5px; --f-date:20px; --f-badge:12.5px;
     --f-link:12px; --minw-info:160px; --minw-actions:190px;
     --copybtn-w:30px; --icon-size:32px; --pad-card:8px 16px 12px; --f-chip:11px;
   }
@@ -1057,7 +1112,7 @@
        a different device — force comfortably-sized, touch-friendly text
        and controls regardless of whatever data-density says. */
     html[data-density]{
-      --f-name:16px; --f-venue:14px; --f-time:13.5px; --f-date:17px;
+      --f-name:17px; --f-venue:14px; --f-time:13.5px; --f-date:17px; --f-badge:13px;
       --f-link:13px; --minw-info:0; --minw-actions:0;
       --copybtn-w:46px; --icon-size:38px; --pad-card:10px 14px 12px; --f-chip:11.5px;
     }
@@ -1098,7 +1153,7 @@
     /* Same reasoning as phones — 2 comfortably-wide columns shouldn't
        inherit a "tiny" density meant for 8 narrow desktop columns. */
     html[data-density]{
-      --f-name:15.5px; --f-venue:13.5px; --f-time:13px; --f-date:18px;
+      --f-name:16.5px; --f-venue:13.5px; --f-time:13px; --f-date:18px; --f-badge:12px;
       --f-link:12.5px; --minw-info:140px; --minw-actions:170px;
       --copybtn-w:42px; --icon-size:36px; --pad-card:9px 14px 11px; --f-chip:11px;
     }
@@ -3644,12 +3699,18 @@ function renderStandard(){
 // Full ticket card for standard sheets: name as the headline, date/time,
 // venue, links, and the same rating/pin/notes/prices toolbar every sheet
 // gets — the only thing that's US-Open-specific is the Day/Night split.
-// "Tue, August 18, 2026 8:00 PM"
+// Returns the date and time as separate strings so the compact card
+// badge can style them differently (Bebas Neue date, monospace time) —
+// "Tue, Aug 18" and "8:00 PM" — no year, since the badge is a small
+// chip and the year is rarely load-bearing for something happening in
+// the next several months; also returns a fullLabel with the year for
+// a hover tooltip, for the rare case a card is actually a year out.
 function formatDateTimeHeadline(dateObj){
   const d = new Date(dateObj);
-  const datePart = d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
-  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return `${datePart} ${time}`;
+  const datePart = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const fullLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + ' at ' + timePart;
+  return { datePart, timePart, fullLabel };
 }
 
 // "Aug 21, 10:00 AM" — used for the presale meta row (public sale date),
@@ -3715,10 +3776,10 @@ function cardHtmlPresale(ev){
   const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
 
   return `
-    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+    <div class="ticket mode-presale-card ${ann.pinned ? 'is-pinned' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="ticket-header-row">
-        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
+        ${dateHeadline ? `<div class="card-date-badge" title="${escapeHtml(dateHeadline.fullLabel)}">${escapeHtml(dateHeadline.datePart)}<span class="badge-time">${escapeHtml(dateHeadline.timePart)}</span></div>` : '<div></div>'}
         <div class="ticket-toolbar">
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="${ann.pinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
@@ -3754,10 +3815,10 @@ function cardHtmlStandard(ev){
   const isSelected = selectMode && selectedKeys.has(key);
 
   return `
-    <div class="ticket ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+    <div class="ticket mode-standard ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
       <div class="ticket-header-row">
-        ${dateHeadline ? `<div class="dn-merged-date">${escapeHtml(dateHeadline)}</div>` : '<div></div>'}
+        ${dateHeadline ? `<div class="card-date-badge" title="${escapeHtml(dateHeadline.fullLabel)}">${escapeHtml(dateHeadline.datePart)}<span class="badge-time">${escapeHtml(dateHeadline.timePart)}</span></div>` : '<div></div>'}
         <div class="ticket-toolbar">
           ${ann.isNew ? `<span class="new-badge" data-action="dismiss-new" data-key="${escapeHtml(key)}" title="Click to dismiss">NEW</span>` : ''}
           <button type="button" class="icon-btn pin-btn ${ann.pinned ? 'active' : ''}" data-action="pin" data-key="${escapeHtml(key)}" title="${ann.pinned ? 'Unpin' : 'Pin to top'}">
@@ -3829,7 +3890,10 @@ function buildDateRows(dayEvents, nightEvents){
 
 // Most-used sections first (Floor/Lowers/Uppers/100s cover the large
 // majority of real presale purchases), rest follow after.
-const QUICK_LABELS = ['Floor', 'Lowers', 'Uppers', '100s', 'Mezz', 'Pits', 'Lawns', 'Best Seats', '200s', '300s', '400s'];
+// "Get In" (the cheapest price to just get into the venue at all — the
+// reference point resellers actually track first) leads the list, ahead
+// of Floor/Lowers/Uppers/100s.
+const QUICK_LABELS = ['Get In', 'Floor', 'Lowers', 'Uppers', '100s', 'Mezz', 'Pits', 'Lawns', 'Best Seats', '200s', '300s', '400s'];
 // Modifiers combine with whichever section chip gets clicked next — e.g.
 // toggle "Center" then click "+ Floor" to get "Center Floor" in one step,
 // instead of adding "Floor" and hand-editing the text afterward.
