@@ -1020,6 +1020,13 @@
   .insights-price-label{flex:1 1 auto;color:var(--text);font-weight:600;}
   .insights-price-count{color:var(--muted);font-size:11px;flex:0 0 auto;}
   .insights-price-range{color:var(--price-chip-value);font-weight:700;flex:0 0 auto;}
+  .insights-price-avg{color:var(--muted);font-size:11px;flex:0 0 auto;font-family:'IBM Plex Mono',monospace;}
+  .insights-price-trend{
+    flex:0 0 auto;font-size:11px;font-weight:700;font-family:'IBM Plex Mono',monospace;
+    padding:2px 6px;border-radius:4px;
+  }
+  .insights-price-trend.trend-up{color:var(--coral);background:rgba(255,107,106,.12);}
+  .insights-price-trend.trend-down{color:#6fcf7f;background:rgba(111,207,127,.12);}
   .insights-empty{color:var(--muted);font-size:12.5px;font-style:italic;margin:2px 0;}
 
   /* ---------- Empty state ---------- */
@@ -1073,6 +1080,23 @@
   }
   .jump-name-star:hover{color:var(--pin);transform:scale(1.15);}
   .jump-name-star.pinned{color:var(--pin);}
+  /* A-Z strip: compact single-letter buttons, deliberately narrow (not
+     the wider pill shape of the name buttons) since there's nothing to
+     read here beyond the one character. Empty letters stay in place but
+     dimmed and unclickable, so the strip's shape/spacing never shifts
+     depending on what's actually in the list. */
+  .az-jump-bar{gap:4px;padding-bottom:10px;}
+  .az-btn{
+    flex:0 0 auto;width:26px;height:26px;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Inter',sans-serif;font-size:11.5px;font-weight:700;
+    border-radius:6px;border:1px solid var(--hairline);
+    background:transparent;color:var(--text);cursor:pointer;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .az-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.08);}
+  .az-btn-empty{color:var(--muted);opacity:.3;cursor:default;border-color:transparent;}
+  .az-btn-empty:hover{border-color:transparent;color:var(--muted);background:transparent;}
   .jump-bar-toggle{
     flex:0 0 auto;
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
@@ -1656,8 +1680,8 @@ redoBtn.addEventListener('click', () => { redo(); });
 // Label always shows what the NEXT click will do (matching the old
 // two-state button's convention), so the button reads as an instruction
 // rather than a status readout.
-expandCollapseBtn.addEventListener('click', () => {
-  expandCycleState = (expandCycleState + 1) % 3;
+function applyExpandCycleState(state){
+  expandCycleState = state;
   const allHeadingKeys = Array.from(listRoot.querySelectorAll('.collapsible-heading')).map(el => el.dataset.section);
   if(expandCycleState === 0){ // fully collapsed
     collapsedSections = new Set(allHeadingKeys);
@@ -1666,6 +1690,9 @@ expandCollapseBtn.addEventListener('click', () => {
   } else { // fully expanded
     collapsedSections = new Set();
   }
+}
+expandCollapseBtn.addEventListener('click', () => {
+  applyExpandCycleState((expandCycleState + 1) % 3);
   render();
 });
 function updateExpandCollapseBtnLabel(){
@@ -2003,6 +2030,10 @@ async function loadAllFromRemote(){
   renderTabs();
   updateModeUI();
   render();
+  if(activeSheet() && activeSheet().mode === 'presale'){
+    applyExpandCycleState(1);
+    render();
+  }
   updateSyncButtonState();
   setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
@@ -3177,6 +3208,15 @@ function setActiveSheet(name){
   renderTabs();
   updateModeUI();
   render();
+  // Presale opens straight into "names visible, cards tucked away" —
+  // every hour's drop-time heading plus the artists in it, letting you
+  // see the whole shape of what's dropping when before scrolling through
+  // any actual cards. Needs one render first so the hour/artist headings
+  // actually exist in the DOM for applyExpandCycleState to collapse.
+  if(sheet && sheet.mode === 'presale'){
+    applyExpandCycleState(1);
+    render();
+  }
 }
 
 async function renameSheet(oldName){
@@ -3408,9 +3448,22 @@ function groupByVenue(events){
 // to start with "Preseason Game 2:"). When a core-name bucket contains
 // such a conflict, it's split back apart by exact name instead of merged,
 // rather than risk conflating two unrelated events under one heading.
+// Leading articles ("The", "A", "An") shouldn't count when deciding
+// where something falls alphabetically — "The Hayley Williams Show"
+// belongs under H, not T, the same way a library or phone book would
+// file it. Only affects sort/jump ORDER; the heading itself still
+// displays the full original name, article included. Also strips a
+// leading quote mark first — event names sometimes wrap a nickname or
+// tour title in literal quotes (e.g. '"The Hayley Williams Show"'),
+// which would otherwise sit in front of "The" and defeat the check.
+function sortKeyForName(name){
+  const withoutQuote = (name || '').trim().replace(/^["'\u2018\u2019\u201c\u201d]+/, '');
+  return withoutQuote.replace(/^(the|an?)\s+/i, '');
+}
+
 function groupByName(events){
   const sorted = [...events].sort((a, b) => {
-    const na = coreArtistName(a.name).toLowerCase(), nb = coreArtistName(b.name).toLowerCase();
+    const na = sortKeyForName(coreArtistName(a.name)).toLowerCase(), nb = sortKeyForName(coreArtistName(b.name)).toLowerCase();
     const cmp = na.localeCompare(nb);
     if(cmp !== 0) return cmp;
     if(!a.dateObj && !b.dateObj) return 0;
@@ -3718,6 +3771,7 @@ function renderSearchResults(query){
   // itself is fixed to name.
   let html = '';
   const searchGroups = groupByName(matched);
+  html += alphabetJumpBarHtml(searchGroups);
   html += nameJumpBarHtml(searchGroups);
   searchGroups.forEach(g => {
     if(g.showHeading){
@@ -3755,6 +3809,36 @@ function renderSearchResults(query){
 // view shows just your pinned shortcuts (if any) plus a toggle to reveal
 // the rest, rather than that entire wall of pills every time.
 let jumpBarCollapsed = true;
+// A classic A-Z strip — one row of letters, click one and it jumps to
+// the first heading that starts with it. Uses the same article-stripped
+// sort key as the actual sort order (see sortKeyForName) so "The Hayley
+// Williams Show" is reachable under H, matching where it actually sorts,
+// not where its literal first character would put it. Letters with
+// nothing under them are shown disabled rather than removed, so the
+// strip's shape stays the same regardless of what's actually in the
+// list — reaching for "M" always lands your thumb/cursor in the same
+// spot whether or not this particular sheet has anything starting there.
+function alphabetJumpBarHtml(groups){
+  const available = groups.filter(g => g.showHeading && g.heading && g.heading.trim());
+  if(available.length < 2) return '';
+  const firstHeadingForLetter = {};
+  available.forEach(g => {
+    const key = sortKeyForName(g.heading).trim();
+    if(!key) return;
+    const ch = key[0].toUpperCase();
+    const letter = /[A-Z]/.test(ch) ? ch : '#';
+    if(!(letter in firstHeadingForLetter)) firstHeadingForLetter[letter] = g.heading;
+  });
+  const letters = ['#', ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('')];
+  const buttons = letters.map(letter => {
+    const heading = firstHeadingForLetter[letter];
+    return heading
+      ? `<button type="button" class="jump-name-btn az-btn" data-jump-heading="${escapeHtml(heading)}">${letter}</button>`
+      : `<button type="button" class="az-btn az-btn-empty" disabled>${letter}</button>`;
+  }).join('');
+  return `<div class="jump-bar az-jump-bar">${buttons}</div>`;
+}
+
 function nameJumpBarHtml(groups){
   const available = groups.filter(g => g.showHeading && g.heading && g.heading.trim());
   if(available.length < 2) return ''; // not worth a jump strip for just one heading
@@ -3838,6 +3922,7 @@ function renderStandard(){
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
   if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
+    if(sortMode === 'name') htmlParts.push(alphabetJumpBarHtml(groups));
     htmlParts.push(nameJumpBarHtml(groups));
   }
   if(pinned.length){
@@ -4282,15 +4367,29 @@ function buildArtistInsights(anchorKey){
   const labelCounts = {};
   priceEntries.forEach(p => { labelCounts[p.label] = (labelCounts[p.label] || 0) + 1; });
   const labelStats = Object.keys(labelCounts).map(label => {
-    const nums = priceEntries
+    const withPrices = priceEntries
       .filter(p => p.label === label && p.price && !/[a-zA-Z]/.test(p.price))
-      .map(p => parseFloat(p.price.replace(/[$,\s]/g, '')))
-      .filter(n => !isNaN(n));
+      .map(p => ({ n: parseFloat(p.price.replace(/[$,\s]/g, '')), showDate: p.showDate }))
+      .filter(p => !isNaN(p.n));
+    const nums = withPrices.map(p => p.n);
+    // Trend compares the price at the earliest-dated show against the
+    // latest-dated one — this is the "has this section gotten more or
+    // less expensive as the tour goes on" read, distinct from min/max
+    // (which just says how much it varies, not which direction it's
+    // moving). Needs at least two different show dates to mean anything;
+    // with only one, there's nothing to compare against.
+    let trend = null;
+    const byDate = withPrices.filter(p => p.showDate).sort((a, b) => new Date(a.showDate) - new Date(b.showDate));
+    if(byDate.length >= 2){
+      const first = byDate[0].n, last = byDate[byDate.length - 1].n;
+      if(first !== last) trend = { first, last, up: last > first, pct: first ? Math.abs((last - first) / first * 100) : null };
+    }
     return {
       label, count: labelCounts[label],
       min: nums.length ? Math.min(...nums) : null,
       max: nums.length ? Math.max(...nums) : null,
-      avg: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
+      avg: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null,
+      trend
     };
   }).sort((a, b) => b.count - a.count);
 
@@ -4303,18 +4402,32 @@ function buildArtistInsights(anchorKey){
     commonDropHour = { hour: parseInt(bestHour, 10), count: hourCounts[bestHour], of: dropHours.length };
   }
 
+  // Date span and venue spread — "this tour runs Aug 27 → Dec 15 across
+  // 14 different venues" is the kind of at-a-glance shape you can't get
+  // from scrolling the individual cards one at a time.
+  const datedShows = shows.map(s => s.ev.dateObj).filter(Boolean).sort();
+  const dateRange = datedShows.length ? { first: datedShows[0], last: datedShows[datedShows.length - 1] } : null;
+  const uniqueVenues = new Set(shows.map(s => (s.ev.venue || '').trim()).filter(Boolean)).size;
+
   return {
     name: anchorEv.name,
-    shows, showLabel, timeline, labelStats, commonDropHour,
+    shows, showLabel, timeline, labelStats, commonDropHour, dateRange, uniqueVenues,
     newCount: shows.filter(s => s.ann.isNew).length,
     totalCount: shows.length
   };
 }
 
 function insightsBodyHtml(insights){
-  const { shows, timeline, labelStats, commonDropHour, newCount, totalCount } = insights;
+  const { shows, timeline, labelStats, commonDropHour, newCount, totalCount, dateRange, uniqueVenues } = insights;
 
   const summaryBits = [`<span class="insights-stat"><b>${totalCount}</b> show${totalCount === 1 ? '' : 's'} tracked</span>`];
+  if(dateRange){
+    const fmt = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    summaryBits.push(dateRange.first === dateRange.last
+      ? `<span class="insights-stat">${escapeHtml(fmt(dateRange.first))}</span>`
+      : `<span class="insights-stat">${escapeHtml(fmt(dateRange.first))} <span class="insights-stat-sub">→</span> ${escapeHtml(fmt(dateRange.last))}</span>`);
+  }
+  if(uniqueVenues > 1) summaryBits.push(`<span class="insights-stat"><b>${uniqueVenues}</b> different venues</span>`);
   if(newCount) summaryBits.push(`<span class="insights-stat is-new">🆕 <b>${newCount}</b> newly added</span>`);
   if(commonDropHour){
     const timeLabel = new Date(2000, 0, 1, commonDropHour.hour).toLocaleTimeString('en-US', { hour: 'numeric' });
@@ -4339,12 +4452,29 @@ function insightsBodyHtml(insights){
     </div>`;
   }).join('') : '<p class="insights-empty">No notes logged yet across these shows.</p>';
 
+  // Each price section now shows its full shape across the tour: how
+  // many shows have it priced, the low–high spread, the average (so one
+  // outlier venue doesn't skew your read of "what does this usually run"),
+  // and — when there's an actual chronological trend to show — whether
+  // it's been trending up or down from the earliest tracked show to the
+  // most recent one. This is the direct "how has the market shifted"
+  // view: not just today's price, but the shape of it over the tour.
   const priceHtml = labelStats.length ? labelStats.map(s => {
     const range = s.min === null ? '—' : (s.min === s.max ? `$${s.min.toLocaleString()}` : `$${s.min.toLocaleString()}–$${s.max.toLocaleString()}`);
+    const avg = s.avg !== null && s.min !== s.max ? `<span class="insights-price-avg">avg $${Math.round(s.avg).toLocaleString()}</span>` : '';
+    let trendHtml = '';
+    if(s.trend){
+      const arrow = s.trend.up ? '▲' : '▼';
+      const cls = s.trend.up ? 'trend-up' : 'trend-down';
+      const pct = s.trend.pct !== null ? ` (${s.trend.pct >= 1000 ? Math.round(s.trend.pct).toLocaleString() : s.trend.pct.toFixed(0)}%)` : '';
+      trendHtml = `<span class="insights-price-trend ${cls}" title="From $${s.trend.first.toLocaleString()} at the earliest tracked show to $${s.trend.last.toLocaleString()} at the most recent">${arrow}${escapeHtml(pct)}</span>`;
+    }
     return `<div class="insights-price-row">
       <span class="insights-price-label">${escapeHtml(s.label)}</span>
       <span class="insights-price-count">${s.count}×</span>
       <span class="insights-price-range">${range}</span>
+      ${avg}
+      ${trendHtml}
     </div>`;
   }).join('') : '<p class="insights-empty">No price sections logged yet across these shows.</p>';
 
@@ -4352,10 +4482,10 @@ function insightsBodyHtml(insights){
     <div class="insights-summary">${summaryBits.join('')}</div>
     <p class="notes-label">Shows (${shows.length})</p>
     <div class="insights-shows-list">${showsHtml}</div>
-    <p class="notes-label">Notes timeline</p>
-    <div class="insights-timeline-list">${timelineHtml}</div>
     <p class="notes-label">Price patterns</p>
     <div class="insights-price-list">${priceHtml}</div>
+    <p class="notes-label">Notes timeline</p>
+    <div class="insights-timeline-list">${timelineHtml}</div>
   `;
 }
 
@@ -4779,6 +4909,7 @@ function renderBroadway(){
 
   let html = '';
   if((sortMode === 'name' || sortMode === 'venue') && topGroups.some(g => g.showHeading)){
+    if(sortMode === 'name') html += alphabetJumpBarHtml(topGroups);
     html += nameJumpBarHtml(topGroups);
   }
 
