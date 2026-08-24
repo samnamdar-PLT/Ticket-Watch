@@ -423,7 +423,16 @@
   }
   .card-date-badge .badge-time{
     font-family:'IBM Plex Mono',monospace;font-weight:600;
-    font-size:var(--f-time);color:var(--teal);letter-spacing:.02em;
+    font-size:var(--f-time);letter-spacing:.02em;
+    /* Inside a presale hour-band, this inherits --hour-color from the
+       band container (custom properties cascade down through the DOM
+       same as any other inherited property) so the time on every card
+       matches ITS OWN band's accent — teal under 10 AM, coral under
+       11 AM, etc — instead of always being the same fixed teal
+       regardless of which band a card actually sits in. Falls back to
+       teal for cards that aren't inside an hour band at all (standard
+       sheets, or presale sorted by something other than presale time). */
+    color:var(--hour-color, var(--teal));
   }
   .ticket-header-row .card-date-badge{padding:10px 0 10px 14px;flex:1 1 auto;min-width:0;}
   .ticket:has(.select-check) .ticket-header-row .card-date-badge{padding-left:40px;}
@@ -511,15 +520,6 @@
     font-size:var(--f-venue);color:var(--text);opacity:.78;
     line-height:1.35;
   }
-  /* Presale-specific: reserve consistent height for the name and venue
-     even when a given card's text happens to be shorter, so the Code
-     line right after them always lands at the same Y position from card
-     to card — line-clamp:2 caps height when text is LONG, but a short
-     1-line title/venue would otherwise take less space and pull
-     everything below it up, making Code visibly jump around card to
-     card in a scan down the grid. */
-  .mode-presale-card .ev-name{min-height:calc(var(--f-name) * 1.3 * 2);}
-  .mode-presale-card .ev-venue{min-height:calc(var(--f-venue) * 1.35 * 2);}
   .ev-time{
     font-family:'IBM Plex Mono',monospace;
     font-size:var(--f-time);font-weight:600;color:var(--amber);
@@ -852,6 +852,24 @@
   .panel-archive-btn:active, .panel-delete-btn:active{transform:scale(.97);}
   .panel-archive-btn:hover{border-color:var(--amber);color:var(--amber);background:rgba(242,193,78,.06);}
   .panel-delete-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
+
+  /* ---------- Trash ---------- */
+  .ticket.is-trashed{opacity:.88;}
+  .trash-meta{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);
+    margin-top:2px;
+  }
+  .trash-action-row{display:flex;gap:8px;padding:10px 14px 12px;}
+  .trash-restore-btn, .trash-forever-btn{
+    flex:1 1 0;
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+    padding:8px 10px;border-radius:8px;text-align:center;
+    border:1px solid var(--hairline);background:transparent;color:var(--muted);
+    cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease;
+  }
+  .trash-restore-btn:active, .trash-forever-btn:active{transform:scale(.97);}
+  .trash-restore-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.06);}
+  .trash-forever-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
 
   /* ---------- Cloud sync ---------- */
   .sync-wrap{position:relative;flex:0 0 auto;}
@@ -1212,9 +1230,9 @@
       </div>
       <select class="sort-select" id="sortSelect" title="Sort">
         <option value="upload">As uploaded</option>
-        <option value="date" id="sortDateOption" selected>By date</option>
+        <option value="date" id="sortDateOption">By date</option>
         <option value="venue">By venue</option>
-        <option value="name">By name</option>
+        <option value="name" selected>By name</option>
       </select>
       <div class="col-stepper" id="colStepper" title="Columns">
         <button class="col-btn" id="colMinus" type="button" aria-label="Fewer columns">−</button>
@@ -1477,7 +1495,6 @@ function savePinnedJumpNames(){
   try{ localStorage.setItem('ticketWatch:pinnedJumpNames', JSON.stringify(Array.from(pinnedJumpNames))); }catch(e){ /* private browsing / storage disabled — pins just won't persist */ }
 }
 let pinnedJumpNames = loadPinnedJumpNames();
-let jumpBarExpanded = false; // false = show pinned names only, true = show every heading
 let openNotesKey = null; // eventKey of the one card whose notes panel is expanded, if any
 let noteSnapshotOnOpen = null; // ann.note captured when the panel opened, so closing can tell if it actually changed
 let historyExpandedKeys = new Set(); // keys whose note-history list is currently expanded
@@ -1536,7 +1553,7 @@ function activeSheet(){
 function activeSheetMode(){
   const s = activeSheet();
   const m = s && s.mode;
-  return (m === 'usopen' || m === 'presale' || m === 'broadway') ? m : 'standard';
+  return (m === 'usopen' || m === 'presale' || m === 'broadway' || m === 'trash') ? m : 'standard';
 }
 
 // Reflects the active sheet's type in the header, empty-state copy, upload
@@ -1749,20 +1766,48 @@ moreMenuToggleBtn.addEventListener('click', e => {
 moreMenuPopover.addEventListener('click', e => e.stopPropagation());
 document.addEventListener('click', () => moreMenuPopover.classList.remove('open'));
 
-// Clicking anywhere outside the currently-open notes panel closes it.
+// Clicking anywhere outside the currently-open notes panel closes it —
+// but if that click landed on a DIFFERENT card entirely (not precisely
+// its notes-preview strip, just anywhere on the card itself: the date,
+// the venue text, empty space), the smart thing to do is switch straight
+// to that card's notes, not just close the one that was open and leave
+// you to click again. Only falls back to a plain close when the click
+// wasn't on any card at all (empty page background, a modal, etc).
 // composedPath() is captured at the moment the click fires, before any
 // other handler on this same click can re-render and replace the DOM —
 // a plain "does this element still contain the click target" check would
-// be unreliable here since several other listRoot handlers (rating,
-// pin, price chips) also call render() on click.
+// be unreliable here since several other listRoot handlers (pin, price
+// chips, links) also call render() on click.
 document.addEventListener('click', e => {
   if(openNotesKey === null) return;
   const path = e.composedPath();
   const clickedInsideOpenCard = path.some(el => el.dataset && el.dataset.key === openNotesKey);
-  if(!clickedInsideOpenCard){
-    closeNotesPanel();
+  if(clickedInsideOpenCard) return;
+  // Was this click on some OTHER card, anywhere on it — not necessarily
+  // its notes trigger specifically? If a more specific handler (a link,
+  // a button, that card's own notes trigger) already dealt with this
+  // exact click, openNotesKey will already equal that card's key by the
+  // time this runs (listRoot's handlers fire first, earlier in the
+  // bubble phase) — so this only ever fires for a plain, otherwise-
+  // unhandled click on a different card's body.
+  //
+  // Must NOT trigger for a click on a link, button, or form control
+  // inside that other card — those already do their own specific thing
+  // (open a ticket link, copy, pin, etc.) and popping the notes panel
+  // open on TOP of that would be a surprising side effect nobody asked
+  // for. Only a click on plain card content (the date, the venue text,
+  // empty padding) counts as "I want to look at this card" here.
+  const clickedInteractive = path.some(el => el.tagName && ['A','BUTTON','INPUT','TEXTAREA','SELECT'].includes(el.tagName));
+  if(clickedInteractive) return;
+  const otherCard = path.find(el => el.dataset && el.dataset.key && el.classList && (el.classList.contains('ticket') || el.classList.contains('shift-block')));
+  if(otherCard){
+    pushUndo();
+    openNotesPanel(otherCard.dataset.key);
     render();
+    return;
   }
+  closeNotesPanel();
+  render();
 });
 
 // ---------- Google Sheets sync ----------
@@ -1840,7 +1885,7 @@ let remoteSheetsList = []; // [{name, mode}] straight from the backend, in real 
 // before their first upload.
 function rebuildSheetsFromCache(){
   let rebuilt;
-  const normalizeMode = m => (m === 'usopen' || m === 'presale' || m === 'broadway') ? m : 'standard';
+  const normalizeMode = m => (m === 'usopen' || m === 'presale' || m === 'broadway' || m === 'trash') ? m : 'standard';
   if(remoteSheetsList.length){
     rebuilt = remoteSheetsList.map(s => ({ name: s.name, mode: normalizeMode(s.mode) }));
   } else {
@@ -1912,6 +1957,7 @@ async function loadAllFromRemote(){
   if(!syncUrl){
     sheets = [{ name: 'Sheet 1', mode: 'standard' }];
     activeSheetName = 'Sheet 1';
+    sortMode = defaultSortModeForMode('standard'); sortSelect.value = sortMode;
     allEvents = []; annotations = {};
     renderTabs(); updateModeUI(); render();
     setSyncStatus('Not connected — nothing will be saved until you connect.', 'error');
@@ -1926,6 +1972,7 @@ async function loadAllFromRemote(){
     setSyncStatus('Could not reach the Google Sheet — check the URL and connection.', 'error');
     sheets = [{ name: 'Sheet 1', mode: 'standard' }];
     activeSheetName = 'Sheet 1';
+    sortMode = defaultSortModeForMode('standard'); sortSelect.value = sortMode;
     allEvents = []; annotations = {};
     renderTabs(); updateModeUI(); render();
     return;
@@ -1938,6 +1985,11 @@ async function loadAllFromRemote(){
   remoteSheetsList = Array.isArray(data.sheets) ? data.sheets : [];
   rebuildSheetsFromCache();
   activeSheetName = pickDefaultSheetName();
+  {
+    const sheet = activeSheet();
+    sortMode = (sheet && sheet.sortMode) || defaultSortModeForMode(sheet ? sheet.mode : 'standard');
+    sortSelect.value = sortMode;
+  }
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
@@ -3016,6 +3068,9 @@ function addSheet(){
 
 function setActiveSheet(name){
   activeSheetName = name;
+  const sheet = activeSheet();
+  sortMode = (sheet && sheet.sortMode) || defaultSortModeForMode(sheet ? sheet.mode : 'standard');
+  sortSelect.value = sortMode;
   openNotesKey = null;
   noteSnapshotOnOpen = null;
   newOnly = false;
@@ -3589,26 +3644,32 @@ function renderSearchResults(query){
 // a short, always-visible shortlist; "Show all" expands to every heading
 // currently in the list so you can pin more or jump to something unpinned
 // without leaving this view.
-// Every heading pill is always visible now — pinned ones just sort to
-// the front and get a filled yellow look, instead of everything but your
-// pins being hidden behind a "Show all" toggle. Clicking the star
-// pins/unpins (and re-sorts); clicking the rest of the pill jumps there.
+// Every heading pill is always visible when expanded — pinned ones sort
+// to the front and get a filled yellow look. Collapsed by default: with
+// a large sheet this can be hundreds of names, which would otherwise
+// dominate the whole screen before a single card is visible — collapsed
+// view shows just your pinned shortcuts (if any) plus a toggle to reveal
+// the rest, rather than that entire wall of pills every time.
+let jumpBarCollapsed = true;
 function nameJumpBarHtml(groups){
   const available = groups.filter(g => g.showHeading && g.heading && g.heading.trim());
   if(available.length < 2) return ''; // not worth a jump strip for just one heading
-  const sorted = [...available].sort((a, b) => {
+  const pinnedOnes = available.filter(g => pinnedJumpNames.has(g.heading));
+  const toShow = jumpBarCollapsed ? pinnedOnes : [...available].sort((a, b) => {
     const aPinned = pinnedJumpNames.has(a.heading), bPinned = pinnedJumpNames.has(b.heading);
     if(aPinned !== bPinned) return aPinned ? -1 : 1;
     return 0; // keep original (alphabetical/venue) order within each group
   });
-  const buttons = sorted.map(g => {
+  const buttons = toShow.map(g => {
     const isPinned = pinnedJumpNames.has(g.heading);
     return `<button type="button" class="jump-name-btn ${isPinned ? 'pinned' : ''}" data-jump-heading="${escapeHtml(g.heading)}">
       <span class="jump-name-star ${isPinned ? 'pinned' : ''}" data-action="jump-pin-toggle" data-jump-heading="${escapeHtml(g.heading)}" title="${isPinned ? 'Unpin' : 'Pin to front'}">${isPinned ? '★' : '☆'}</span>
       <span class="jump-name-label">${escapeHtml(g.heading)}</span>
     </button>`;
   }).join('');
-  return `<div class="jump-bar name-jump-bar">${buttons}</div>`;
+  const toggleBtn = `<button type="button" class="jump-bar-toggle" data-action="jump-bar-collapse-toggle">${jumpBarCollapsed ? `▾ Show all (${available.length})` : '▴ Collapse'}</button>`;
+  const hint = (jumpBarCollapsed && !pinnedOnes.length) ? `<span class="jump-bar-hint">Tap "Show all" then a star to pin names here for quick jumps</span>` : '';
+  return `<div class="jump-bar name-jump-bar">${buttons}${hint}${toggleBtn}</div>`;
 }
 
 // A plain always-visible strip of every drop-time heading currently on
@@ -3863,6 +3924,36 @@ function cardHtmlStandard(ev){
   const isOpen = key === openNotesKey;
   const isSelected = selectMode && selectedKeys.has(key);
 
+  // Trash cards are deliberately NOT editable in place — no pin, no
+  // notes panel, no price chips — since the whole point is "this is on
+  // its way out, look at it and decide: bring it back, or let it go for
+  // good." Restoring puts it back exactly where it was (including its
+  // note/sections/history, all still intact underneath), so nothing
+  // about the item is actually lost by having sat in the trash.
+  if(activeSheetMode() === 'trash'){
+    const deletedWhen = ev.deletedAt ? new Date(ev.deletedAt).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ' at ' + new Date(ev.deletedAt).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) : '';
+    return `
+    <div class="ticket mode-standard is-trashed ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
+      ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
+      <div class="ticket-header-row">
+        ${dateHeadline ? `<div class="card-date-badge" title="${escapeHtml(dateHeadline.fullLabel)}">${escapeHtml(dateHeadline.datePart)}<span class="badge-time">${escapeHtml(dateHeadline.timePart)}</span></div>` : '<div></div>'}
+      </div>
+      <div class="ticket-body">
+        <div class="ticket-main">
+          <div class="ticket-info">
+            <div class="ev-name">${escapeHtml(ev.name)}</div>
+            <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+            ${deletedWhen ? `<div class="trash-meta">Deleted ${escapeHtml(deletedWhen)} from ${escapeHtml(ev.deletedFromSheet || 'a sheet that no longer exists')}</div>` : ''}
+          </div>
+        </div>
+        <div class="trash-action-row">
+          <button type="button" class="trash-restore-btn" data-action="restore-trash" data-key="${escapeHtml(key)}">↺ Restore</button>
+          <button type="button" class="trash-forever-btn" data-action="delete-forever" data-key="${escapeHtml(key)}">🗑 Delete forever</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   return `
     <div class="ticket mode-standard ${ann.pinned ? 'is-pinned' : ''} ${ann.isNew ? 'is-new' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
       ${selectMode ? `<button type="button" class="select-check ${isSelected ? 'checked' : ''}" data-action="select" data-key="${escapeHtml(key)}" aria-label="Select"></button>` : ''}
@@ -3938,11 +4029,11 @@ function buildDateRows(dayEvents, nightEvents){
 }
 
 // Most-used sections first (Floor/Lowers/Uppers/100s cover the large
-// majority of real presale purchases), rest follow after.
 // "Get In" (the cheapest price to just get into the venue at all — the
-// reference point resellers actually track first) leads the list, ahead
-// of Floor/Lowers/Uppers/100s.
-const QUICK_LABELS = ['Get In', 'Floor', 'Lowers', 'Uppers', '100s', 'Mezz', 'Pits', 'Lawns', 'Best Seats', '200s', '300s', '400s'];
+// reference point resellers actually track first) leads the list, then
+// Best Seats/Uppers/Lowers/Floor/100s-400s in the order actually asked
+// for, with the less common ones (Mezz/Pits/Lawns) trailing after.
+const QUICK_LABELS = ['Get In', 'Best Seats', 'Uppers', 'Lowers', 'Floor', '100s', '200s', '300s', '400s', 'Mezz', 'Pits', 'Lawns'];
 // Modifiers combine with whichever section chip gets clicked next — e.g.
 // toggle "Center" then click "+ Floor" to get "Center Floor" in one step,
 // instead of adding "Floor" and hand-editing the text afterward.
@@ -4249,8 +4340,12 @@ function priceHistoryHtml(key, ann){
 
 function notesPanelHtml(key, ann, ev, showPresaleFields = false){
   const rows = ann.sections.map(row => priceRowHtml(key, row)).join('');
-  const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('')
-    + `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="">+ Custom</button>`;
+  // No dedicated "+ Custom" chip — every added row's label is already a
+  // plain editable text field (see priceRowHtml), so getting a custom
+  // section just means clicking any chip and retyping its label; a
+  // separate blank-row button wasn't doing anything a normal edit
+  // couldn't already do.
+  const chips = QUICK_LABELS.map(label => `<button type="button" class="price-chip" data-key="${escapeHtml(key)}" data-label="${escapeHtml(label)}">+ ${escapeHtml(label)}</button>`).join('');
   // Ticket link editing lives here for every card, not just presale mode —
   // any show can end up missing a VividSeats/StubHub link that needs
   // adding by hand, not just presales. Plus any number of extra links
@@ -4733,8 +4828,22 @@ searchClearBtn.addEventListener('click', () => {
 
 sortSelect.addEventListener('change', () => {
   sortMode = sortSelect.value;
+  // Remembered per-sheet so switching between a Standard sheet and a
+  // Presale sheet doesn't carry one's sort choice onto the other —
+  // each sheet keeps its own for the rest of the session.
+  const sheet = activeSheet();
+  if(sheet) sheet.sortMode = sortMode;
   render();
 });
+
+// Standard/Broadway sheets default to grouping by artist name — that's
+// what you're actually scanning for most of the time. Presale defaults
+// to "by presale time" (see groupByPresaleOrShowDate) since drop times
+// are the whole point of that sheet. US Open ignores this entirely (its
+// dropdown is hidden; it always groups by venue category).
+function defaultSortModeForMode(mode){
+  return mode === 'presale' ? 'date' : 'name';
+}
 
 // Copies a ticket link to the clipboard and briefly shows a checkmark on
 // the button that triggered it. Falls back to a hidden-textarea copy for
@@ -4821,9 +4930,9 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
-  const jumpBarToggle = e.target.closest('[data-action="jump-bar-toggle"]');
+  const jumpBarToggle = e.target.closest('[data-action="jump-bar-collapse-toggle"]');
   if(jumpBarToggle){
-    jumpBarExpanded = !jumpBarExpanded;
+    jumpBarCollapsed = !jumpBarCollapsed;
     render();
     return;
   }
@@ -5215,6 +5324,35 @@ listRoot.addEventListener('focusout', e => {
   if(e.target.classList && e.target.classList.contains('presale-link-input')){
     setTimeout(render, 0);
   }
+});
+
+// Snapshot a price VALUE's contents the moment it's focused, so on
+// blur — if the number actually changed — the OLD value can be logged
+// to priceHistory before it's gone for good. This is specifically what
+// lets you come back later and see "Get In was $200, then $250, now
+// $310" instead of the old number just being silently overwritten the
+// instant you correct it. Scoped to the value only (not the label) since
+// tracking every section-name edit isn't what anyone's asking to compare
+// over time — the price is.
+let priceValueSnapshot = null; // {key, rowId, value}
+listRoot.addEventListener('focusin', e => {
+  if(e.target.classList && e.target.classList.contains('price-value')){
+    priceValueSnapshot = { key: e.target.dataset.key, rowId: e.target.dataset.row, value: e.target.value };
+  }
+});
+listRoot.addEventListener('focusout', e => {
+  if(!(e.target.classList && e.target.classList.contains('price-value'))) return;
+  if(!priceValueSnapshot || priceValueSnapshot.rowId !== e.target.dataset.row) { priceValueSnapshot = null; return; }
+  const oldValue = priceValueSnapshot.value.trim();
+  const newValue = e.target.value.trim();
+  priceValueSnapshot = null;
+  if(!oldValue || oldValue === newValue) return; // nothing worth logging — was blank, or unchanged
+  const ann = getAnnotation(e.target.dataset.key);
+  const row = ann.sections.find(r => r.id === e.target.dataset.row);
+  if(!row) return;
+  if(!ann.priceHistory) ann.priceHistory = [];
+  ann.priceHistory.push({ label: row.label || '', price: oldValue, removedAt: new Date().toISOString() });
+  saveNotesSoon();
 });
 
 ['dragenter','dragover'].forEach(evt => {
