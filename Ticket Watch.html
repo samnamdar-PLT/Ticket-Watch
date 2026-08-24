@@ -1565,12 +1565,14 @@ function updateModeUI(){
   const isUsOpen = mode === 'usopen';
   const isPresale = mode === 'presale';
   const isBroadway = mode === 'broadway';
-  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : isBroadway ? 'Broadway Mode' : 'Ticket List';
+  const isTrash = mode === 'trash';
+  eyebrowLabel.textContent = isUsOpen ? 'US Open Mode' : isPresale ? 'Presale Mode' : isBroadway ? 'Broadway Mode' : isTrash ? 'Trash' : 'Ticket List';
   // Presale is a fast-moving, constantly-re-uploaded sheet — cards there
   // never show the NEW badge (too much visual noise/clicking-to-dismiss
   // for something you expect to change every time you touch it), so a
   // "New only" filter would just be filtering by something invisible.
-  newFilterBtn.style.display = isPresale ? 'none' : 'inline-flex';
+  // Trash never sets isNew on anything it receives either, same reason.
+  newFilterBtn.style.display = (isPresale || isTrash) ? 'none' : 'inline-flex';
   // US Open always groups by venue category, so its sort dropdown would
   // do nothing — Broadway keeps the dropdown, since which show and which
   // date matter differently show to show and it's worth being able to
@@ -1586,8 +1588,11 @@ function updateModeUI(){
   // fallback "presale time" would be actively wrong, not just vague.
   const hasPresaleTimes = isPresale && allEvents.some(e => e.presaleDateObj);
   if(sortDateOption) sortDateOption.textContent = hasPresaleTimes ? 'By presale time' : 'By date';
-  uploadBtn.textContent = 'Add CSV';
-  emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : isBroadway ? '🎭' : '🎟️';
+  // Nothing gets directly uploaded into Trash — things only land there
+  // by being deleted from somewhere else — so the upload control just
+  // doesn't apply here.
+  uploadBtn.style.display = isTrash ? 'none' : 'inline-flex';
+  emptyIcon.textContent = isUsOpen ? '🎾' : isPresale ? '🎫' : isBroadway ? '🎭' : isTrash ? '🗑' : '🎟️';
   if(isUsOpen){
     emptyHeading.textContent = 'No sessions yet';
     emptyBody.textContent = 'Add a CSV to get started — sessions are grouped by venue, with each date\'s Day and Night sessions shown side by side. Every future upload adds on top of what\'s here; duplicates are skipped.';
@@ -1597,6 +1602,9 @@ function updateModeUI(){
   } else if(isBroadway){
     emptyHeading.textContent = 'No shows yet';
     emptyBody.textContent = 'Add a CSV to get started — matinee and evening performances of the same show on the same date are merged into one card, side by side. Sort by name or date like any other sheet. Every future upload adds on top of what\'s here; duplicates are skipped.';
+  } else if(isTrash){
+    emptyHeading.textContent = 'Trash is empty';
+    emptyBody.textContent = 'Deleted events land here — with their notes, sections, and history all still intact — instead of disappearing right away. Restore one back to its original sheet, or delete it for good.';
   } else {
     emptyHeading.textContent = 'This sheet is empty';
     emptyBody.textContent = 'Upload a CSV to fill this sheet. Uploading again adds new events on top and refreshes matching ones — nothing gets duplicated, and your notes stay put. Use + above to start a separate sheet.';
@@ -1931,6 +1939,7 @@ function buildEventsAndAnnotations(rows){
       presaleDateStr: ev.presaleDateStr || '',
       presaleDateObj: presaleParsed ? presaleParsed.toISOString() : null,
       code: ev.code || '', publicSaleDateStr: ev.publicSaleDateStr || '',
+      deletedAt: ev.deletedAt || '', deletedFromSheet: ev.deletedFromSheet || '',
       __sheet: ev.appSheet, __mode: ev.sheetMode || 'standard'
     };
   });
@@ -2685,6 +2694,36 @@ function findEventByKey(key){
   return null;
 }
 
+// The Trash sheet is just another sheet tab under the hood (same
+// replaceSheetTab_ mechanism every other sheet uses), which means it
+// persists and syncs for free — the only special things about it are:
+// it's found by MODE not by name (so a rename can't orphan it), it's
+// created lazily the first time something actually needs to go there
+// (no reason to clutter the tab bar for someone who's never deleted
+// anything), and the UI guards elsewhere (renderTabs, deleteSheet) keep
+// it from being renamed/deleted like a normal sheet.
+function ensureTrashSheetExists(){
+  let trash = sheets.find(s => s.mode === 'trash');
+  if(!trash){
+    trash = { name: '🗑 Trash', mode: 'trash' };
+    sheets.push(trash);
+    renderTabs();
+  }
+  return trash;
+}
+
+// Moves one event (with its full annotation already merged onto it —
+// note, sections, price/note history, extra links, everything) into the
+// Trash sheet, stamped with when and which sheet it came from. Reads the
+// trash sheet's current contents straight from remoteCache rather than
+// switching activeSheetName to it, so this can run without disturbing
+// whatever sheet you're actually looking at.
+async function moveEventToTrash(trashedEvent){
+  const trash = ensureTrashSheetExists();
+  const existing = remoteCache.filter(r => r.appSheet === trash.name);
+  await pushSheetEvents(trash.name, 'trash', [...existing, trashedEvent]);
+}
+
 async function saveEventsToActiveSheet(events){
   allEvents = events;
   metaLine.textContent = `${events.length} events · live from Google Sheets`;
@@ -2742,28 +2781,80 @@ async function clearActiveSheetEvents(){
 // Removes a single event (and its note/rating/pin/prices) — from the
 // active sheet normally, or from its actual home sheet if it's a
 // cross-sheet search result.
+// "Delete" now means "move to Trash" — no passcode needed anymore,
+// since this is fully reversible from inside the Trash sheet (unlike
+// the old behavior, which destroyed the event and its notes outright).
+// The passcode instead guards the one truly irreversible action:
+// permanentlyDeleteFromTrash, below.
 async function deleteSingleEvent(key){
   const inActive = allEvents.find(e => eventKey(e) === key);
   if(inActive){
-    const ok = await requestDeletePasscode();
-    if(!ok) return;
     pushUndo();
+    const ann = getAnnotation(key);
+    const trashedEvent = { ...inActive, note: ann.note || '', rating: ann.rating || 0, pinned: false, sections: ann.sections || [], isNew: false, archived: false, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [], extraLinks: ann.extraLinks || [], deletedAt: new Date().toISOString(), deletedFromSheet: activeSheetName };
     allEvents = allEvents.filter(e => eventKey(e) !== key);
     delete annotations[key];
     if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
     render();
     await pushActiveSheetToRemote();
+    await moveEventToTrash(trashedEvent);
     return;
   }
   if(!searchAnnotationsMap || !searchAnnotationsMap.has(key)) return;
   const entry = searchAnnotationsMap.get(key);
-  const ok = await requestDeletePasscode();
-  if(!ok) return;
+  const trashedEvent = { ...entry.ev, note: entry.ann.note || '', rating: entry.ann.rating || 0, pinned: false, sections: entry.ann.sections || [], isNew: false, archived: false, noteHistory: entry.ann.noteHistory || [], priceHistory: entry.ann.priceHistory || [], extraLinks: entry.ann.extraLinks || [], deletedAt: new Date().toISOString(), deletedFromSheet: entry.sheetName };
   searchAnnotationsMap.delete(key);
   remoteCache = remoteCache.filter(r => eventKey(r) !== key);
   if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
   render();
   await pushCrossSheetEventEdit(entry.sheetName);
+  await moveEventToTrash(trashedEvent);
+}
+
+// Puts a trashed event back on whatever sheet it came from, with its
+// note/sections/history all still intact (they were never touched while
+// it sat in the trash — restoring is just moving the same object back).
+// If that original sheet no longer exists (renamed or deleted since),
+// asks which sheet to restore into instead rather than silently
+// dropping it somewhere unexpected.
+async function restoreFromTrash(key){
+  const ev = allEvents.find(e => eventKey(e) === key);
+  if(!ev) return;
+  const ann = getAnnotation(key);
+  let targetSheet = sheets.find(s => s.name === ev.deletedFromSheet && s.mode !== 'trash');
+  if(!targetSheet){
+    const names = sheets.filter(s => s.mode !== 'trash').map(s => s.name);
+    const typed = prompt(`"${ev.deletedFromSheet || 'that sheet'}" doesn't exist anymore. Restore to which sheet?\n\n${names.join(', ')}`, names[0] || '');
+    if(typed === null) return;
+    targetSheet = sheets.find(s => s.name === typed.trim());
+    if(!targetSheet){ alert('No sheet with that name — nothing was restored.'); return; }
+  }
+  pushUndo();
+  allEvents = allEvents.filter(e => eventKey(e) !== key);
+  delete annotations[key];
+  if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
+  render();
+  await pushActiveSheetToRemote(); // persists the removal from Trash
+  const restoredEvent = { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: false, sections: ann.sections || [], isNew: false, archived: false, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [], extraLinks: ann.extraLinks || [] };
+  delete restoredEvent.deletedAt;
+  delete restoredEvent.deletedFromSheet;
+  const targetExisting = remoteCache.filter(r => r.appSheet === targetSheet.name);
+  await pushSheetEvents(targetSheet.name, targetSheet.mode, [...targetExisting, restoredEvent]);
+}
+
+// The actual point of no return — permanently removes an event from the
+// Trash sheet. This is the one delete action that still asks for the
+// passcode, since unlike the regular "delete" (which just moves things
+// here), there's no getting this back afterward.
+async function permanentlyDeleteFromTrash(key){
+  const ok = await requestDeletePasscode();
+  if(!ok) return;
+  pushUndo();
+  allEvents = allEvents.filter(e => eventKey(e) !== key);
+  delete annotations[key];
+  if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
+  render();
+  await pushActiveSheetToRemote();
 }
 
 // Bulk-clears events dated before today (midnight boundary) — today's
@@ -3113,6 +3204,11 @@ async function deleteSheet(name){
     alert("You need at least one sheet — try renaming it or clearing its data instead.");
     return;
   }
+  const target = sheets.find(s => s.name === name);
+  if(target && target.mode === 'trash'){
+    alert("The Trash sheet can't be deleted directly — restore or permanently delete items from inside it instead.");
+    return;
+  }
   if(!confirm(`Delete "${name}"? This can't be undone.`)) return;
   sheets = sheets.filter(s => s.name !== name);
   pendingEmptySheets = pendingEmptySheets.filter(p => p.name !== name);
@@ -3129,10 +3225,10 @@ async function deleteSheet(name){
 
 function renderTabs(){
   sheetTabs.innerHTML = sheets.map(s => `
-    <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="Drag to reorder — double-click to rename" draggable="true">
-      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : s.mode === 'broadway' ? '🎭' : '🎟️'}</span>
+    <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="${s.mode === 'trash' ? 'Deleted events — restore them or clear them out for good' : 'Drag to reorder — double-click to rename'}" draggable="${s.mode !== 'trash'}">
+      <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : s.mode === 'broadway' ? '🎭' : s.mode === 'trash' ? '🗑' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
-      <span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>
+      ${s.mode === 'trash' ? '' : `<span class="tab-close" data-name="${escapeHtml(s.name)}" title="Delete sheet">×</span>`}
     </button>
   `).join('') + `<button class="sheet-tab add-tab" id="addSheetBtn" title="Start a new, separate sheet (name it, choose US Open mode if it needs Day/Night)">+</button>`;
 
@@ -3148,6 +3244,14 @@ function renderTabs(){
     });
     btn.addEventListener('dblclick', e => {
       if(e.target.classList.contains('tab-close')) return;
+      // The trash tab's name is load-bearing (ensureTrashSheetExists
+      // looks it up by mode, not name, so a rename wouldn't actually
+      // break anything functionally) — but renaming "away" the one tab
+      // that's supposed to read as "this is where deleted stuff goes"
+      // just invites confusion, so it's blocked outright rather than
+      // technically-fine-but-pointless.
+      const sheet = sheets.find(s => s.name === btn.dataset.name);
+      if(sheet && sheet.mode === 'trash') return;
       renameSheet(btn.dataset.name);
     });
 
@@ -4982,6 +5086,20 @@ listRoot.addEventListener('click', async e => {
   const deleteBtn = e.target.closest('[data-action="delete"]');
   if(deleteBtn){
     deleteSingleEvent(deleteBtn.dataset.key);
+    return;
+  }
+
+  const restoreTrashBtn = e.target.closest('[data-action="restore-trash"]');
+  if(restoreTrashBtn){
+    restoreFromTrash(restoreTrashBtn.dataset.key);
+    return;
+  }
+
+  const deleteForeverBtn = e.target.closest('[data-action="delete-forever"]');
+  if(deleteForeverBtn){
+    if(confirm('Permanently delete this? There is no way to get it back after this.')){
+      permanentlyDeleteFromTrash(deleteForeverBtn.dataset.key);
+    }
     return;
   }
 
