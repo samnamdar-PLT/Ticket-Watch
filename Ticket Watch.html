@@ -150,7 +150,35 @@
   .sheet-tab.add-tab{color:var(--muted);font-size:16px;padding:7px 13px;}
   .sheet-tab.add-tab:hover{color:var(--amber);}
 
-  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1 1 auto;}
+  .toolbar{
+    display:flex;gap:8px;align-items:center;
+    /* flex-basis:0 (not auto) is what actually fixes the wrap bug below
+       — flex-wrap's line-breaking decision is made using each item's
+       HYPOTHETICAL size (its content-based size before any
+       shrinking/growing is applied), not its final post-shrink size, so
+       min-width:0 alone doesn't stop a wide toolbar from tripping
+       .header-inner's wrap once its content is large enough — only a
+       small hypothetical size (flex-basis:0) does, letting flex-grow
+       expand it afterward to fill whatever's actually left next to the
+       title. That's the mechanism behind the whole bug this fixes: a
+       selection-count button going from "Archive" to "Archive (1)" grew
+       the toolbar's content just enough to push its hypothetical size
+       over the line, header-inner would wrap it to a new row, every
+       card below shifted down, and a second click aimed at a checkbox
+       would land wherever that old screen position now happened to be
+       instead — which is the actual mechanism behind drag-selecting
+       feeling "very glitchy". */
+    flex:1 1 0%;min-width:0;
+    flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:thin;-webkit-overflow-scrolling:touch;
+  }
+  .toolbar::-webkit-scrollbar{height:5px;}
+  .toolbar::-webkit-scrollbar-thumb{background:var(--hairline);border-radius:3px;}
+  .toolbar::-webkit-scrollbar-track{background:transparent;}
+  /* Every button keeps its natural size — only the search box is
+     allowed to shrink (down to its own min-width), same division of
+     space as before. */
+  .toolbar > *:not(.search-wrap){flex-shrink:0;}
   .sort-select{
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
     padding:8px 28px 8px 10px;border-radius:7px;
@@ -256,6 +284,13 @@
     margin:14px 0 10px;
     border-radius:8px;
     border:1px solid var(--hairline);
+    /* Without this, jumping to a heading via the A-Z strip or a name
+       pill scrolls it to the very top of the list — which is exactly
+       where the sticky jump bar now permanently sits, so the heading
+       you just jumped to would land hidden right underneath it. This
+       tells scrollIntoView to leave that much room above the target
+       instead. */
+    scroll-margin-top:64px;
     display:flex;align-items:center;gap:10px;
   }
   .day-heading:first-child{
@@ -331,6 +366,32 @@
     cursor:pointer;transition:border-color .15s ease,color .15s ease,background .15s ease;
   }
   .bulk-open-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.06);}
+  /* Floating control for opening links one at a time — sits above
+     everything, stays fixed to the viewport (not the scrolling list) so
+     it's reachable no matter how far down the page you've scrolled
+     while working through a long queue of links. */
+  .bulk-open-toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    z-index:200;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    max-width:calc(100vw - 32px);
+    background:var(--card);border:1px solid var(--hairline);border-radius:12px;
+    padding:12px 16px;box-shadow:0 12px 32px rgba(0,0,0,.5);
+  }
+  .bulk-open-toast-text{font-family:'Inter',sans-serif;font-size:13px;color:var(--text);white-space:nowrap;}
+  .bulk-open-toast-btn{
+    font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;
+    padding:7px 12px;border-radius:8px;border:1px solid var(--hairline);
+    background:transparent;color:var(--text);cursor:pointer;white-space:nowrap;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .bulk-open-toast-btn:hover{border-color:var(--teal);color:var(--teal);}
+  .bulk-open-toast-btn.primary{background:var(--teal);border-color:var(--teal);color:#0d1a19;}
+  .bulk-open-toast-btn.primary:hover{filter:brightness(1.08);}
+  @media (max-width:560px){
+    .bulk-open-toast{left:16px;right:16px;bottom:16px;transform:none;max-width:none;flex-direction:column;align-items:stretch;}
+    .bulk-open-toast-text{white-space:normal;text-align:center;}
+  }
   .pinned-grid{margin-bottom:18px;}
 
   .ticket{
@@ -1029,6 +1090,34 @@
   .insights-price-trend.trend-down{color:#6fcf7f;background:rgba(111,207,127,.12);}
   .insights-empty{color:var(--muted);font-size:12.5px;font-style:italic;margin:2px 0;}
 
+  /* ---------- History modal ---------- */
+  .history-batch{border:1px solid var(--hairline);border-radius:8px;margin-bottom:8px;overflow:hidden;}
+  .history-batch-header{
+    width:100%;display:flex;align-items:center;gap:10px;
+    padding:10px 12px;background:var(--card);border:none;cursor:pointer;text-align:left;
+    font-family:'Inter',sans-serif;color:var(--text);
+    transition:background .15s ease;
+  }
+  .history-batch-header:hover{background:var(--card-hover);}
+  .history-batch-title{font-weight:700;font-size:13px;flex:0 0 auto;}
+  .history-batch-meta{color:var(--muted);font-size:11.5px;flex:1 1 auto;}
+  .history-batch-caret{color:var(--muted);transition:transform .15s ease;flex:0 0 auto;}
+  .history-batch-header.open .history-batch-caret{transform:rotate(90deg);}
+  .history-batch-events{padding:10px 12px;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--hairline);}
+  .history-event-row{padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.04);}
+  .history-event-row:last-child{border-bottom:none;padding-bottom:0;}
+  .history-event-main{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .history-event-name{font-weight:700;color:var(--teal);font-size:13px;}
+  .history-event-date{color:var(--muted);font-size:11px;font-family:'IBM Plex Mono',monospace;flex:0 0 auto;}
+  .history-event-venue{color:var(--text);opacity:.75;font-size:12px;margin-top:1px;}
+  .history-event-note{font-size:12px;color:var(--text);opacity:.85;margin-top:4px;white-space:pre-wrap;}
+  .history-event-sections{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
+  .history-section-chip{
+    font-size:10.5px;font-family:'IBM Plex Mono',monospace;font-weight:600;
+    background:var(--price-chip-bg);color:var(--price-chip-value);
+    border:1px solid var(--price-chip-border);border-radius:4px;padding:2px 6px;
+  }
+
   /* ---------- Empty state ---------- */
   .empty{
     max-width:520px;margin:80px auto;text-align:center;
@@ -1053,7 +1142,17 @@
   .no-results{color:var(--muted);font-size:14px;padding:40px 0;text-align:center;}
   .jump-bar{
     display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  }
+  /* Wraps the A-Z strip and the name-pill row together on one line
+     instead of two stacked ones — meaningfully shorter when the name
+     row is collapsed (its usual state), which is most of the time.
+     Sticky so it stays put as you scroll through a long list instead of
+     scrolling away with everything else — background is opaque so cards
+     scrolling underneath don't show through it. */
+  .sticky-jump-row{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;
     padding:10px 0 14px;margin-bottom:4px;border-bottom:1px solid var(--hairline);
+    position:sticky;top:0;z-index:5;background:var(--bg);
   }
   .jump-name-btn{
     display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
@@ -1085,7 +1184,7 @@
      read here beyond the one character. Empty letters stay in place but
      dimmed and unclickable, so the strip's shape/spacing never shifts
      depending on what's actually in the list. */
-  .az-jump-bar{gap:4px;padding-bottom:10px;}
+  .az-jump-bar{gap:4px;}
   .az-btn{
     flex:0 0 auto;width:26px;height:26px;padding:0;
     display:flex;align-items:center;justify-content:center;
@@ -1178,7 +1277,14 @@
     .ticket-main{flex-direction:column;}
     .ticket-info{flex:0 0 auto;} /* same fix as the container query above — don't stretch vertically */
     .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
-    .link-row{flex:1 1 30%;}
+    /* Each platform gets its own full-width row instead of trying to
+       pack two per row — with 3 buttons, two-per-row wrapping leaves
+       the third one alone on its own line with a big dead gap next to
+       it (exactly the awkward, inconsistent look being reported here).
+       Stacking all of them full-width is more predictable regardless of
+       how many links a card has, and the buttons end up easier to tap
+       too. */
+    .link-row{flex:1 1 100%;}
 
     /* Only one card fits per row anyway, so there's no reason for text
        to be scaled down for a high desktop column count someone set on
@@ -1194,22 +1300,29 @@
        open notes panel to make room from — span is meaningless here. */
     .day-grid .ticket:has(.notes-panel){grid-column:span 1;}
 
-    /* Header: stack into a simple, thumb-friendly column instead of a
-       long wrapping row of 15+ buttons fighting for space. */
+    /* Header: same single toolbar row as desktop — search plus every
+       button in the same left-to-right order — just sized for touch and
+       left to scroll sideways (see .toolbar's overflow-x rule) instead
+       of restructuring into a different, phone-only layout. */
     .header-inner{padding:0;gap:10px;}
     .toolbar{gap:6px;}
+    /* Without a cap, search's flex-grow (needed on desktop to fill
+       leftover space next to fixed-width buttons) instead grows to fill
+       the ENTIRE scrollable toolbar width at phone sizes — every other
+       button gets pushed off past the right edge, reachable only by a
+       long swipe. A fixed width here keeps search reasonably sized and
+       leaves the rest of the row visible right next to it, same as
+       every other button. */
+    .search-wrap{flex:0 0 180px;}
     .toolbar .btn, .toolbar .filter-btn{padding:9px 10px;font-size:12.5px;}
-    #searchInput{min-width:0;}
-    .search-wrap, #searchInput{flex:1 1 100%;}
     #colStepper{display:none;}
-    .sheet-tabs-row{flex-wrap:wrap;gap:6px;}
+    .sheet-tabs-row{flex-wrap:nowrap;overflow-x:auto;gap:6px;}
     .meta-line{flex-basis:100%;order:3;}
 
     /* Bigger touch targets throughout — 32px icon buttons are fine for a
        mouse cursor but tight for a fingertip. */
     .select-check{width:28px;height:28px;}
     .panel-archive-btn, .panel-delete-btn{padding:10px;}
-    .rating-star{width:32px;height:32px;}
     .price-chip{padding:8px 6px;}
 
     /* Modals already scale via width:100% + the overlay's own padding —
@@ -1293,6 +1406,7 @@
           <button class="menu-row-btn" id="markSeenBtn" title="Clear the NEW badge from every event on this sheet">✓ Mark all seen</button>
           <button class="menu-row-btn" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
           <button class="menu-row-btn" id="clearBtn" style="display:none;">🗑 Clear data</button>
+          <button class="menu-row-btn" id="viewHistoryBtn" title="Browse snapshots saved from past Clear-data actions — kept out of daily use, only shown when you open it">📜 View history</button>
           <div class="menu-row-divider"></div>
           <p class="notes-label">Keyboard shortcuts</p>
           <div class="shortcuts-list">
@@ -1363,6 +1477,7 @@
   </div>
 </div>
 
+<div class="bulk-open-toast" id="bulkOpenToast" style="display:none;"></div>
 <div class="modal-overlay" id="deletePasscodeModal" style="display:none;">
   <div class="modal-box">
     <h3 class="modal-title">Confirm Delete</h3>
@@ -1383,6 +1498,16 @@
       <button type="button" class="insights-close-btn" id="closeInsightsBtn" aria-label="Close">×</button>
     </div>
     <div class="insights-modal-body" id="insightsBody"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="historyModal" style="display:none;">
+  <div class="modal-box insights-modal">
+    <div class="insights-modal-header">
+      <h3 class="modal-title">📜 History</h3>
+      <button type="button" class="insights-close-btn" id="closeHistoryBtn" aria-label="Close">×</button>
+    </div>
+    <div class="insights-modal-body" id="historyBody"></div>
   </div>
 </div>
 
@@ -1427,8 +1552,10 @@ const addSheetModal = $('#addSheetModal');
 const newSheetNameInput = $('#newSheetNameInput');
 const cancelAddSheetBtn = $('#cancelAddSheetBtn');
 const confirmAddSheetBtn = $('#confirmAddSheetBtn');
+const bulkOpenToast = $('#bulkOpenToast');
 const deletePasscodeModal = $('#deletePasscodeModal');
 const deletePasscodeInput = $('#deletePasscodeInput');
+const deletePasscodeLabel = $('#deletePasscodeLabel');
 const deletePasscodeError = $('#deletePasscodeError');
 const cancelDeletePasscodeBtn = $('#cancelDeletePasscodeBtn');
 const confirmDeletePasscodeBtn = $('#confirmDeletePasscodeBtn');
@@ -1436,6 +1563,10 @@ const insightsModal = $('#insightsModal');
 const insightsTitle = $('#insightsTitle');
 const insightsBody = $('#insightsBody');
 const closeInsightsBtn = $('#closeInsightsBtn');
+const historyModal = $('#historyModal');
+const historyBody = $('#historyBody');
+const viewHistoryBtn = $('#viewHistoryBtn');
+const closeHistoryBtn = $('#closeHistoryBtn');
 const clearPastBtn = $('#clearPastBtn');
 
 // ---------- Delete passcode gate ----------
@@ -1448,11 +1579,12 @@ const clearPastBtn = $('#clearPastBtn');
 const DELETE_PASSCODE = '2121';
 let deletePasscodeResolve = null;
 
-function requestDeletePasscode(){
+function requestDeletePasscode(message){
   return new Promise(resolve => {
     deletePasscodeResolve = resolve;
     deletePasscodeInput.value = '';
     deletePasscodeError.style.display = 'none';
+    deletePasscodeLabel.textContent = message || 'Enter the 4-digit passcode to delete';
     deletePasscodeModal.style.display = 'flex';
     deletePasscodeInput.focus();
   });
@@ -1487,6 +1619,82 @@ function closeInsightsModal(){
 }
 closeInsightsBtn.addEventListener('click', closeInsightsModal);
 insightsModal.addEventListener('click', e => { if(e.target === insightsModal) closeInsightsModal(); });
+
+// History is read on demand from remoteCache, not kept in memory
+// separately — remoteCache already holds every sheet's data (that's how
+// switching sheets normally works), History included, so opening this
+// modal just needs to filter it down rather than fetch anything new.
+function openHistoryModal(){
+  const histSheet = sheets.find(s => s.mode === 'history');
+  const histEvents = histSheet ? remoteCache.filter(r => r.appSheet === histSheet.name) : [];
+  historyBody.innerHTML = historyBodyHtml(histEvents);
+  historyModal.style.display = 'flex';
+}
+function closeHistoryModal(){
+  historyModal.style.display = 'none';
+}
+viewHistoryBtn.addEventListener('click', () => {
+  openHistoryModal();
+  moreMenuPopover.classList.remove('open');
+});
+closeHistoryBtn.addEventListener('click', closeHistoryModal);
+historyModal.addEventListener('click', e => { if(e.target === historyModal) closeHistoryModal(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && historyModal.style.display !== 'none') closeHistoryModal();
+});
+// Batches events by which Clear-data run put them here (same source
+// sheet + same instant) so browsing reads as "here's what Sheet 1
+// looked like on this specific day" — separate, collapsed-by-default
+// entries you open one at a time, rather than one long flat pile of
+// every event that's ever been cleared, which is exactly the "too much
+// content to see day to day" this whole feature exists to avoid.
+function historyBodyHtml(histEvents){
+  if(!histEvents.length){
+    return '<p class="insights-empty">No history yet — a snapshot is saved automatically every time you use "Clear data" on a sheet.</p>';
+  }
+  const batches = {};
+  histEvents.forEach(ev => {
+    const k = (ev.deletedFromSheet || 'Unknown sheet') + '|' + (ev.deletedAt || '');
+    if(!batches[k]) batches[k] = { sheetName: ev.deletedFromSheet || 'Unknown sheet', clearedAt: ev.deletedAt, events: [] };
+    batches[k].events.push(ev);
+  });
+  const sorted = Object.values(batches).sort((a, b) => new Date(b.clearedAt || 0) - new Date(a.clearedAt || 0));
+  return sorted.map((b, i) => {
+    const when = b.clearedAt ? new Date(b.clearedAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Unknown date';
+    return `<div class="history-batch">
+      <button type="button" class="history-batch-header" data-action="toggle-history-batch" data-batch-index="${i}">
+        <span class="history-batch-title">${escapeHtml(b.sheetName)}</span>
+        <span class="history-batch-meta">${escapeHtml(when)} · ${b.events.length} event${b.events.length === 1 ? '' : 's'}</span>
+        <span class="history-batch-caret">▸</span>
+      </button>
+      <div class="history-batch-events" id="historyBatch${i}" style="display:none;">
+        ${b.events.map(historyEventRowHtml).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+function historyEventRowHtml(ev){
+  const dateStr = ev.dateObj ? new Date(ev.dateObj).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const sections = (ev.sections || []).filter(s => (s.label && s.label.trim()) || (s.price && s.price.trim()));
+  return `<div class="history-event-row">
+    <div class="history-event-main">
+      <span class="history-event-name">${escapeHtml(ev.name || '')}</span>
+      ${dateStr ? `<span class="history-event-date">${escapeHtml(dateStr)}</span>` : ''}
+    </div>
+    <div class="history-event-venue">${escapeHtml(ev.venue || '')}</div>
+    ${ev.note && ev.note.trim() ? `<div class="history-event-note">📝 ${escapeHtml(ev.note.trim())}</div>` : ''}
+    ${sections.length ? `<div class="history-event-sections">${sections.map(s => `<span class="history-section-chip">${escapeHtml(s.label || '')} ${escapeHtml(s.price ? '$' + s.price : '')}</span>`).join('')}</div>` : ''}
+  </div>`;
+}
+historyBody.addEventListener('click', e => {
+  const header = e.target.closest('[data-action="toggle-history-batch"]');
+  if(!header) return;
+  const el = document.getElementById('historyBatch' + header.dataset.batchIndex);
+  if(!el) return;
+  const opening = el.style.display === 'none';
+  el.style.display = opening ? 'block' : 'none';
+  header.classList.toggle('open', opening);
+});
 
 let allEvents = [];
 let sheets = []; // [{name, mode}] — identity is the sheet's name, matching how rows are tagged remotely
@@ -1564,6 +1772,15 @@ function closeNotesPanel(){
   noteSnapshotOnOpen = null;
 }
 let selectedKeys = new Set();
+// Drag-select state: mousedown on a card, then dragging over others
+// while the button's held selects (or deselects) everything the cursor
+// passes over — same gesture as picking multiple photos on a phone,
+// which the Select button's own tooltip already promises but the app
+// never actually implemented; a plain click was the only way to select
+// anything, which is what made it feel glitchy for selecting more than
+// one or two cards at a time.
+let dragSelect = null; // {value: true|false, movedAcrossCards: bool}
+let suppressNextClickToggle = false;
 let lastSelectedKey = null; // anchor for shift-click range selection
 let savedCollapsedSections = null; // snapshot taken when a search starts, restored when it ends
 let searchModeActive = false;
@@ -1763,6 +1980,61 @@ function toggleCardSelection(key, shiftKey){
   render();
 }
 
+// Applies the drag's selection value directly to one card's DOM (no
+// render() call) — cheap enough to run on every card the cursor passes
+// over during a drag, and critically doesn't tear down/rebuild the list
+// mid-gesture the way a full render() would, which is exactly what made
+// dragging across cards unreliable before: the elements under the mouse
+// kept getting replaced out from under it every time a card's selection
+// changed.
+function applyDragSelectToCard(card, value){
+  const key = card.dataset.key;
+  if(value) selectedKeys.add(key); else selectedKeys.delete(key);
+  card.classList.toggle('is-selected', value);
+  const check = card.querySelector('.select-check');
+  if(check) check.classList.toggle('checked', value);
+}
+
+listRoot.addEventListener('mousedown', e => {
+  if(!selectMode || e.button !== 0) return;
+  const card = e.target.closest('.ticket[data-key], .shift-block[data-key]');
+  if(!card) return;
+  const key = card.dataset.key;
+  if(e.shiftKey){
+    // Shift-click is a discrete range-select action, not a drag gesture
+    // — keep using the existing range logic (and its full render()) for
+    // it, rather than folding it into the drag path below.
+    toggleCardSelection(key, true);
+    suppressNextClickToggle = true;
+    return;
+  }
+  const willSelect = !selectedKeys.has(key);
+  dragSelect = { value: willSelect, movedAcrossCards: false, startKey: key };
+  applyDragSelectToCard(card, willSelect);
+  lastSelectedKey = key;
+  updateSelectModeUI();
+  // Applied immediately here (not waiting for the 'click' that follows)
+  // so the exact same code path handles both a plain click and the
+  // start of a drag — the click just needs suppressing either way so it
+  // doesn't toggle this same card right back.
+  suppressNextClickToggle = true;
+});
+listRoot.addEventListener('mouseover', e => {
+  if(!selectMode || !dragSelect) return;
+  const card = e.target.closest('.ticket[data-key], .shift-block[data-key]');
+  if(!card || card.dataset.key === dragSelect.startKey) return;
+  dragSelect.movedAcrossCards = true;
+  applyDragSelectToCard(card, dragSelect.value);
+  updateSelectModeUI();
+});
+document.addEventListener('mouseup', () => {
+  // An actual drag shouldn't leave a shift-click range anchor behind —
+  // that's specifically a single-click concept. A plain click (no drag)
+  // already set lastSelectedKey correctly back in mousedown.
+  if(dragSelect && dragSelect.movedAcrossCards) lastSelectedKey = null;
+  dragSelect = null;
+});
+
 // No passcode needed here — unlike delete, archiving is fully reversible
 // (the individual per-card Archive button already works this way).
 confirmArchiveBtn.addEventListener('click', async () => {
@@ -1777,11 +2049,17 @@ confirmArchiveBtn.addEventListener('click', async () => {
   await pushActiveSheetToRemote();
 });
 
+// Bulk delete now matches single-card delete — moves everything
+// selected into Trash instead of destroying it outright, so no passcode
+// needed here either (see deleteSingleEvent for the full reasoning).
 confirmDeleteBtn.addEventListener('click', async () => {
   if(!selectedKeys.size) return;
-  const ok = await requestDeletePasscode();
-  if(!ok) return;
   pushUndo();
+  const deletedAt = new Date().toISOString();
+  const toTrash = allEvents.filter(ev => selectedKeys.has(eventKey(ev))).map(ev => {
+    const ann = getAnnotation(eventKey(ev));
+    return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: false, sections: ann.sections || [], isNew: false, archived: false, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [], extraLinks: ann.extraLinks || [], deletedAt, deletedFromSheet: activeSheetName };
+  });
   allEvents = allEvents.filter(ev => !selectedKeys.has(eventKey(ev)));
   selectedKeys.forEach(k => delete annotations[k]);
   selectMode = false;
@@ -1790,6 +2068,9 @@ confirmDeleteBtn.addEventListener('click', async () => {
   updateSelectModeUI();
   render();
   await pushActiveSheetToRemote();
+  const trash = ensureTrashSheetExists();
+  const existingTrash = remoteCache.filter(r => r.appSheet === trash.name);
+  await pushSheetEvents(trash.name, 'trash', [...existingTrash, ...toTrash]);
 });
 
 const moreMenuToggleBtn = $('#moreMenuToggleBtn');
@@ -1943,7 +2224,13 @@ function rebuildSheetsFromCache(){
 // front (via the tab bar's drag-and-drop reordering) if you want it to be
 // what opens by default, same as reordering tabs in Google Sheets itself.
 function pickDefaultSheetName(){
-  return sheets.length ? sheets[0].name : null;
+  // Trash and History are real entries in `sheets` (so the rest of the
+  // sync machinery treats them like any other tab), but neither should
+  // ever be picked as what greets you on load — that's exactly the
+  // "shouldn't show up during daily use" idea this whole feature exists
+  // to protect.
+  const normal = sheets.filter(s => s.mode !== 'trash' && s.mode !== 'history');
+  return normal.length ? normal[0].name : (sheets.length ? sheets[0].name : null);
 }
 
 // Rebuilds allEvents/annotations for whichever sheet is active, from the
@@ -2755,6 +3042,33 @@ async function moveEventToTrash(trashedEvent){
   await pushSheetEvents(trash.name, 'trash', [...existing, trashedEvent]);
 }
 
+// History works exactly like Trash under the hood — same "just another
+// sheet tab" persistence trick — but is deliberately never added to the
+// visible tab bar (renderTabs filters mode:'history' out) and never
+// calls renderTabs() when created, since the whole point is that this
+// stays completely out of the way during normal day-to-day use and only
+// ever shows up when explicitly opened via "View history" in the menu.
+function ensureHistorySheetExists(){
+  let hist = sheets.find(s => s.mode === 'history');
+  if(!hist){
+    hist = { name: '📜 History', mode: 'history' };
+    sheets.push(hist);
+  }
+  return hist;
+}
+
+// Archives a whole sheet's worth of events in one batch (used by Clear
+// data) — every event in the batch shares the same clearedAt timestamp
+// and sourceSheet, which is what lets the History viewer group them back
+// together as "this is what Sheet 1 looked like on this specific day",
+// years from now, instead of just a flat pile of old events.
+async function archiveSheetSnapshot(sourceSheetName, snapshotEvents){
+  if(!snapshotEvents.length) return;
+  const hist = ensureHistorySheetExists();
+  const existing = remoteCache.filter(r => r.appSheet === hist.name);
+  await pushSheetEvents(hist.name, 'history', [...existing, ...snapshotEvents]);
+}
+
 async function saveEventsToActiveSheet(events){
   allEvents = events;
   metaLine.textContent = `${events.length} events · live from Google Sheets`;
@@ -2800,8 +3114,25 @@ async function handleCsvUpload(file, text){
   await saveEventsToActiveSheet(merged);
 }
 
+// Clear data now requires the same passcode as permanently deleting
+// from Trash — this is the one bulk action that used to wipe an entire
+// sheet with just a plain confirm() dialog, easy to click through
+// without really registering what it does. Also archives everything
+// into History first (see archiveSheetSnapshot) before wiping, so
+// "clear" now means "start fresh AND keep a snapshot of what this
+// looked like", not just "delete everything".
 async function clearActiveSheetEvents(){
+  const ok = await requestDeletePasscode(`Enter the passcode to clear all events on "${activeSheetName}"`);
+  if(!ok) return;
   pushUndo();
+  if(allEvents.length){
+    const clearedAt = new Date().toISOString();
+    const snapshot = allEvents.map(ev => {
+      const ann = getAnnotation(eventKey(ev));
+      return { ...ev, note: ann.note || '', rating: ann.rating || 0, pinned: false, sections: ann.sections || [], isNew: false, archived: false, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [], extraLinks: ann.extraLinks || [], deletedAt: clearedAt, deletedFromSheet: activeSheetName };
+    });
+    await archiveSheetSnapshot(activeSheetName, snapshot);
+  }
   allEvents = [];
   annotations = {};
   metaLine.textContent = '';
@@ -2878,7 +3209,7 @@ async function restoreFromTrash(key){
 // passcode, since unlike the regular "delete" (which just moves things
 // here), there's no getting this back afterward.
 async function permanentlyDeleteFromTrash(key){
-  const ok = await requestDeletePasscode();
+  const ok = await requestDeletePasscode('Enter the passcode to permanently delete this — there is no getting it back after this');
   if(!ok) return;
   pushUndo();
   allEvents = allEvents.filter(e => eventKey(e) !== key);
@@ -3264,7 +3595,10 @@ async function deleteSheet(name){
 }
 
 function renderTabs(){
-  sheetTabs.innerHTML = sheets.map(s => `
+  // History never appears here — it's reached only through the "View
+  // history" menu item, kept out of the tab bar entirely so it can't
+  // show up during normal day-to-day use no matter what.
+  sheetTabs.innerHTML = sheets.filter(s => s.mode !== 'history').map(s => `
     <button class="sheet-tab ${s.name === activeSheetName ? 'active' : ''}" data-name="${escapeHtml(s.name)}" title="${s.mode === 'trash' ? 'Deleted events — restore them or clear them out for good' : 'Drag to reorder — double-click to rename'}" draggable="${s.mode !== 'trash'}">
       <span class="sheet-tab-icon">${s.mode === 'usopen' ? '🎾' : s.mode === 'presale' ? '🎫' : s.mode === 'broadway' ? '🎭' : s.mode === 'trash' ? '🗑' : '🎟️'}</span>
       <span class="tab-label">${escapeHtml(s.name)}</span>
@@ -3771,8 +4105,7 @@ function renderSearchResults(query){
   // itself is fixed to name.
   let html = '';
   const searchGroups = groupByName(matched);
-  html += alphabetJumpBarHtml(searchGroups);
-  html += nameJumpBarHtml(searchGroups);
+  html += combinedNameJumpBarHtml(searchGroups);
   searchGroups.forEach(g => {
     if(g.showHeading){
       const pinKeys = g.events.map(eventKey);
@@ -3837,6 +4170,18 @@ function alphabetJumpBarHtml(groups){
       : `<button type="button" class="az-btn az-btn-empty" disabled>${letter}</button>`;
   }).join('');
   return `<div class="jump-bar az-jump-bar">${buttons}</div>`;
+}
+
+// Combines the A-Z strip and the name-pill row into a single sticky
+// line instead of two separate stacked bars — meaningfully shorter
+// (the name row is collapsed to one line most of the time anyway), and
+// staying pinned while scrolling means you don't have to scroll back up
+// every time you want to jump somewhere else in a long list.
+function combinedNameJumpBarHtml(groups){
+  const az = alphabetJumpBarHtml(groups);
+  const names = nameJumpBarHtml(groups);
+  if(!az && !names) return '';
+  return `<div class="sticky-jump-row">${az}${names}</div>`;
 }
 
 function nameJumpBarHtml(groups){
@@ -3922,8 +4267,7 @@ function renderStandard(){
   // its own single-item grid and every card ended up in column 1.
   const htmlParts = [];
   if((sortMode === 'name' || sortMode === 'venue') && groups.some(g => g.showHeading)){
-    if(sortMode === 'name') htmlParts.push(alphabetJumpBarHtml(groups));
-    htmlParts.push(nameJumpBarHtml(groups));
+    htmlParts.push(sortMode === 'name' ? combinedNameJumpBarHtml(groups) : nameJumpBarHtml(groups));
   }
   if(pinned.length){
     // Pinned events get the same organization as everything else — e.g.
@@ -4222,7 +4566,11 @@ function buildDateRows(dayEvents, nightEvents){
 // reference point resellers actually track first) leads the list, then
 // Best Seats/Uppers/Lowers/Floor/100s-400s in the order actually asked
 // for, with the less common ones (Mezz/Pits/Lawns) trailing after.
-const QUICK_LABELS = ['Get In', 'Best Seats', 'Uppers', 'Lowers', 'Floor', '100s', '200s', '300s', '400s', 'Mezz', 'Pits', 'Lawns'];
+// "100s/200s/etc" as a bare trailing "s" reads badly once the label gets
+// run through the price chip's all-caps styling — "100S" at that size
+// looks like it could be an "8" or a stray digit, not a plural. Spelling
+// out "Level" removes the ambiguity entirely.
+const QUICK_LABELS = ['Get In', 'Best Seats', 'Uppers', 'Lowers', 'Floor', '100 Level', '200 Level', '300 Level', '400 Level', 'Mezz', 'Pits', 'Lawns'];
 // Modifiers combine with whichever section chip gets clicked next — e.g.
 // toggle "Center" then click "+ Floor" to get "Center Floor" in one step,
 // instead of adding "Floor" and hand-editing the text afterward.
@@ -4717,7 +5065,7 @@ function dnMergedCardHtml(row, labelOverride){
 // by each card's actual rendered top position (not a fixed column-count
 // assumption), so this holds even if the grid reflows at a different
 // width.
-function openAllLinksForCategory(gridEl, platformClass){
+function openAllLinksForCategory(gridEl, platformClass, platformLabel){
   const cards = Array.from(gridEl.querySelectorAll('.ticket.dn-merged'));
   if(!cards.length) return;
   // Group into visual rows by top position (rounded, so sub-pixel
@@ -4758,13 +5106,70 @@ function openAllLinksForCategory(gridEl, platformClass){
     alert('No links found for that platform in this section.');
     return;
   }
-  // All opened synchronously within this same click handler — browsers
-  // generally allow a burst of window.open calls that are a direct,
-  // synchronous result of a user gesture like this one, but will still
-  // show their own "this site opened multiple popups" prompt past a
-  // certain count, which is a browser-level limit this can't bypass.
-  urls.forEach(url => window.open(url, '_blank', 'noopener'));
+  startBulkOpenQueue(urls, platformLabel);
 }
+
+// A browser's popup blocker only ever guarantees ONE thing reliably:
+// window.open() called as the DIRECT, synchronous result of a genuine
+// click always works. A loop firing 20+ opens from that same click does
+// not — different browsers cap it at different counts, some silently
+// drop the rest, and there's no page-level way to detect or override
+// that. Rather than gamble on "some number probably goes through", this
+// opens exactly one link per click and leaves a small floating control
+// on screen so getting the rest open is a few more taps of one button —
+// slower than a single click, but every single tab is guaranteed to
+// actually open, on every browser, every time.
+let bulkOpenQueue = null; // { urls, index, label }
+function startBulkOpenQueue(urls, label){
+  bulkOpenQueue = { urls, index: 0, label };
+  openNextInBulkQueue();
+}
+function openNextInBulkQueue(){
+  if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length) return;
+  window.open(bulkOpenQueue.urls[bulkOpenQueue.index], '_blank', 'noopener');
+  bulkOpenQueue.index++;
+  renderBulkOpenToast();
+}
+function renderBulkOpenToast(){
+  if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length){
+    bulkOpenToast.style.display = 'none';
+    bulkOpenQueue = null;
+    return;
+  }
+  const { urls, index, label } = bulkOpenQueue;
+  const remaining = urls.length - index;
+  bulkOpenToast.style.display = 'flex';
+  bulkOpenToast.innerHTML = `
+    <span class="bulk-open-toast-text">Opened ${index} of ${urls.length} ${escapeHtml(label)} links</span>
+    <button type="button" class="bulk-open-toast-btn primary" data-action="bulk-open-next">Open next (${remaining} left)</button>
+    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-copy-rest">Copy remaining links</button>
+    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-dismiss">Done</button>
+  `;
+}
+
+// The toast is a fixed-position overlay OUTSIDE #listRoot, so its
+// buttons need their own listener — listRoot's click delegation only
+// ever sees clicks on its own descendants.
+bulkOpenToast.addEventListener('click', e => {
+  if(e.target.closest('[data-action="bulk-open-next"]')){
+    openNextInBulkQueue();
+    return;
+  }
+  const copyBtn = e.target.closest('[data-action="bulk-open-copy-rest"]');
+  if(copyBtn){
+    if(bulkOpenQueue){
+      const rest = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
+      copyToClipboard(rest.join('\n'));
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { if(bulkOpenQueue) renderBulkOpenToast(); }, 1200);
+    }
+    return;
+  }
+  if(e.target.closest('[data-action="bulk-open-dismiss"]')){
+    bulkOpenQueue = null;
+    bulkOpenToast.style.display = 'none';
+  }
+});
 
 // Small "open all" row injected into a category heading — one button per
 // ticket platform, each triggering openAllLinksForCategory scoped to
@@ -4909,8 +5314,7 @@ function renderBroadway(){
 
   let html = '';
   if((sortMode === 'name' || sortMode === 'venue') && topGroups.some(g => g.showHeading)){
-    if(sortMode === 'name') html += alphabetJumpBarHtml(topGroups);
-    html += nameJumpBarHtml(topGroups);
+    html += sortMode === 'name' ? combinedNameJumpBarHtml(topGroups) : nameJumpBarHtml(topGroups);
   }
 
   if(pinned.length){
@@ -5005,7 +5409,7 @@ fileInput.addEventListener('change', e => {
 });
 
 clearBtn.addEventListener('click', () => {
-  if(confirm(`Clear all events on "${activeSheetName}"?`)) clearActiveSheetEvents();
+  clearActiveSheetEvents();
   moreMenuPopover.classList.remove('open');
 });
 
@@ -5107,6 +5511,12 @@ async function copyToClipboard(text){
 
 listRoot.addEventListener('click', async e => {
   if(selectMode){
+    // A completed drag already applied its selection change directly to
+    // the DOM as it happened (see mousedown/mouseover below, which skip
+    // the normal full re-render for performance) — this click, which
+    // fires right after mouseup, would otherwise toggle the same card a
+    // second time and undo what the drag just did.
+    if(suppressNextClickToggle){ suppressNextClickToggle = false; return; }
     const card = e.target.closest('.ticket[data-key], .shift-block[data-key]');
     if(card) toggleCardSelection(card.dataset.key, e.shiftKey);
     return;
@@ -5136,7 +5546,7 @@ listRoot.addEventListener('click', async e => {
     const heading = bulkOpenBtn.closest('.day-heading');
     const grid = heading ? heading.nextElementSibling : null;
     if(grid && grid.classList.contains('day-grid')){
-      openAllLinksForCategory(grid, bulkOpenBtn.dataset.platform);
+      openAllLinksForCategory(grid, bulkOpenBtn.dataset.platform, bulkOpenBtn.textContent.replace('↗ ', '').trim());
     }
     return;
   }
