@@ -372,6 +372,7 @@
   .heading-code-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--amber);}
   .heading-code-btn-plus{position:absolute;right:1px;bottom:1px;background:var(--card);border-radius:50%;}
   .day-heading.collapsed .heading-code-btn{display:none;}
+  .day-heading.collapsed .heading-pin-btn{display:none;}
   /* Presale's artist sub-heading is a narrow, indented row (unlike a
      regular sheet's full-width artist heading), so pushing its icons
      all the way to the far right — same rule that reads fine on a
@@ -1112,6 +1113,15 @@
   .insights-code-value{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--amber);font-size:12.5px;}
   .insights-code-row.is-historical .insights-code-value{color:var(--muted);}
   .insights-code-show{font-size:11px;color:var(--muted);flex:0 0 auto;text-align:right;}
+  .insights-rawhistory-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;}
+  .insights-rawhistory-row{
+    display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;
+    padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.02);
+    font-size:11.5px;
+  }
+  .insights-rawhistory-label{color:var(--text);font-weight:600;flex:0 0 auto;}
+  .insights-rawhistory-price{font-family:'IBM Plex Mono',monospace;color:var(--muted);flex:0 0 auto;}
+  .insights-rawhistory-meta{color:var(--muted);opacity:.7;font-size:10.5px;flex:1 1 auto;text-align:right;}
   .insights-timeline-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;}
   .insights-timeline-entry{
     border-left:2px solid var(--hairline);padding-left:10px;
@@ -4860,18 +4870,37 @@ function buildArtistInsights(anchorKey){
     return 0;
   });
 
-  const priceEntries = [];
+  const priceEntries = []; // live, current values only — drives the "N×" count
+  const historicalPriceEntries = []; // superseded values — feed range/trend only, not the count
   shows.forEach(({ ev, ann }) => {
     (ann.sections || []).forEach(s => {
       if((s.label && s.label.trim()) || (s.price && s.price.trim())){
         priceEntries.push({ label: (s.label || '').trim() || '(unlabeled)', price: s.price || '', showDate: ev.dateObj });
       }
     });
+    // Superseded prices (see the price-value focusout handler, which logs
+    // the OLD value here every time one gets edited) feed the range and
+    // trend too, not just whatever's currently sitting in the field —
+    // without this, changing a price on a card that's the only one
+    // tracking that section (a very common case — most sections only
+    // ever show up on one show) left the Insights view with nothing to
+    // show a trend against, even though the price obviously did change.
+    // Dated by when the edit happened (not the show's own date), since
+    // that's when that number was actually true. Kept out of the "N×"
+    // count deliberately — that number means "how many shows have this
+    // priced right now," and a superseded value isn't a second show, so
+    // counting it there would just be misleading.
+    (ann.priceHistory || []).forEach(h => {
+      if((h.label && h.label.trim()) || (h.price && h.price.trim())){
+        historicalPriceEntries.push({ label: (h.label || '').trim() || '(unlabeled)', price: h.price || '', showDate: h.removedAt });
+      }
+    });
   });
   const labelCounts = {};
   priceEntries.forEach(p => { labelCounts[p.label] = (labelCounts[p.label] || 0) + 1; });
   const labelStats = Object.keys(labelCounts).map(label => {
-    const withPrices = priceEntries
+    const allEntriesForLabel = priceEntries.concat(historicalPriceEntries);
+    const withPrices = allEntriesForLabel
       .filter(p => p.label === label && p.price && !/[a-zA-Z]/.test(p.price))
       .map(p => ({ n: parseFloat(p.price.replace(/[$,\s]/g, '')), showDate: p.showDate }))
       .filter(p => !isNaN(p.n));
@@ -4965,6 +4994,37 @@ function insightsBodyHtml(insights){
       <span class="insights-code-show">${escapeHtml(c.showLabel)}${c.isHistorical ? ' · 📜 past' : ''}</span>
     </div>`).join('') : '';
 
+  // A direct, literal list of every price change ever logged for this
+  // artist — every entry straight from ann.priceHistory on every show,
+  // no aggregation or math in between. The "Price patterns" row above
+  // folds this into a single min–max range and a trend arrow, which is
+  // the more useful read most of the time, but is still one layer of
+  // computation removed from the raw data — this section is the raw
+  // data itself, so there's always a completely unprocessed place to
+  // check that a given price change actually got recorded.
+  const rawHistoryEntries = [];
+  shows.forEach(({ ev, ann, isHistorical }) => {
+    (ann.priceHistory || []).forEach(h => {
+      if((h.label && h.label.trim()) || (h.price && h.price.trim())){
+        rawHistoryEntries.push({ label: h.label || '(unlabeled)', price: h.price || '—', when: h.removedAt, showLabel: showLabel(ev), isHistorical });
+      }
+    });
+  });
+  rawHistoryEntries.sort((a, b) => {
+    if(a.when && b.when) return new Date(b.when) - new Date(a.when);
+    if(a.when) return -1;
+    if(b.when) return 1;
+    return 0;
+  });
+  const rawHistoryHtml = rawHistoryEntries.length ? rawHistoryEntries.map(h => {
+    const whenStr = h.when ? new Date(h.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + new Date(h.when).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+    return `<div class="insights-rawhistory-row">
+      <span class="insights-rawhistory-label">${escapeHtml(h.label)}</span>
+      <span class="insights-rawhistory-price">was $${escapeHtml(h.price)}</span>
+      <span class="insights-rawhistory-meta">${escapeHtml(whenStr)} · ${escapeHtml(h.showLabel)}${h.isHistorical ? ' · 📜 past' : ''}</span>
+    </div>`;
+  }).join('') : '';
+
   const timelineHtml = timeline.length ? timeline.map(t => {
     const when = t.current ? 'Current' : (t.when ? new Date(t.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
     return `<div class="insights-timeline-entry ${t.current ? 'is-current' : ''}">
@@ -5006,6 +5066,7 @@ function insightsBodyHtml(insights){
     ${codesHtml ? `<p class="notes-label">Codes</p><div class="insights-code-list">${codesHtml}</div>` : ''}
     <p class="notes-label">Price patterns</p>
     <div class="insights-price-list">${priceHtml}</div>
+    ${rawHistoryHtml ? `<p class="notes-label">Price history (${rawHistoryEntries.length})</p><div class="insights-rawhistory-list">${rawHistoryHtml}</div>` : ''}
     <p class="notes-label">Notes timeline</p>
     <div class="insights-timeline-list">${timelineHtml}</div>
   `;
@@ -5320,16 +5381,33 @@ function startBulkOpenQueue(urls, label){
 // at all — it's treated as a fresh popup request, which is why it kept
 // stealing focus even with a window.focus() call tacked on afterward
 // (some browsers just don't let a script reclaim focus once a real new
-// tab has already taken it). A genuine ctrl/cmd-click on an actual <a>
-// element is different: the browser handles THAT natively, and its
-// native handling is exactly what respects "open in the background,
-// stay right where I am." So instead of window.open(), this builds a
-// real (invisible) link and dispatches a synthetic click on it with the
-// ctrl/cmd modifier held down — same code path a real modifier-click
-// would take, which is the only way to reliably get real background-tab
-// behavior from a script. Sets both ctrlKey and metaKey so it works the
-// same way on Windows/Linux (ctrl) and Mac (cmd) without needing to
-// detect which platform it's running on.
+// tab has already taken it).
+//
+// The first version of this fix dispatched a synthetic click with
+// ctrlKey/metaKey forced to true, to mimic a real modifier-click. That
+// turned out to be the wrong tool: browsers can tell a script-dispatched
+// click isn't a real, trusted user gesture (event.isTrusted is false),
+// and at least some of them don't honor a FAKED modifier key on an
+// untrusted click the way they would a real one — instead of opening a
+// background tab, it can fall through to treating it as a plain click,
+// which for some link/browser combinations means navigating the CURRENT
+// page instead of opening anything new at all. Removing the element
+// from the DOM immediately after dispatching (the very next line) was a
+// second, separate risk on top of that — pulling it out before the
+// browser had necessarily finished acting on the click could interrupt
+// the new-tab handling mid-flight.
+//
+// This version drops the fake modifier entirely and relies only on
+// target="_blank" on a real anchor, which is the long-established,
+// broadly reliable way to get a script-triggered click to open a new
+// tab — no browser needs to be convinced a modifier key was "really"
+// held down for this to work, since the tab-opening behavior comes from
+// the target attribute itself, not from spoofing a keyboard state. This
+// trades away the "runs on the ~same code path as a real ctrl-click"
+// guarantee for something much more important: whether it reliably
+// opens a new tab AT ALL, instead of replacing the page. The anchor's
+// removal is deferred a tick so the browser has already acted on the
+// click before the element disappears.
 function openUrlInBackground(url){
   const a = document.createElement('a');
   a.href = url;
@@ -5337,8 +5415,8 @@ function openUrlInBackground(url){
   a.rel = 'noopener';
   a.style.display = 'none';
   document.body.appendChild(a);
-  a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, ctrlKey: true, metaKey: true, button: 0 }));
-  a.remove();
+  a.click();
+  setTimeout(() => a.remove(), 0);
 }
 function openNextInBulkQueue(){
   if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length) return;
