@@ -752,6 +752,13 @@
   .presale-body .ev-venue{margin-bottom:2px;}
   .presale-meta-row{display:flex;flex-wrap:wrap;gap:10px;margin:2px 0 4px;}
   .presale-meta-item{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;}
+  .add-code-btn{
+    font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;
+    padding:3px 8px;border-radius:5px;
+    border:1px dashed var(--hairline);background:transparent;color:var(--muted);
+    cursor:pointer;transition:border-color .15s ease,color .15s ease;
+  }
+  .add-code-btn:hover{border-color:var(--amber);color:var(--amber);}
   /* The code itself is the clickable/copyable target now (no separate
      icon button beside it) — styled as an unmistakable pill so it still
      reads as tappable, with the copy/check icon inline as a small hint
@@ -903,16 +910,17 @@
   .history-text{font-size:12px;color:var(--text);opacity:.85;white-space:pre-wrap;}
   .history-empty{font-style:italic;opacity:.6;}
   .panel-action-row{display:flex;gap:8px;margin-top:12px;}
-  .panel-archive-btn, .panel-delete-btn{
+  .panel-archive-btn, .panel-delete-btn, .panel-release-btn{
     flex:1 1 0;
     font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
     padding:8px 10px;border-radius:8px;text-align:center;
     border:1px solid var(--hairline);background:transparent;color:var(--muted);
     cursor:pointer;transition:border-color .15s ease, color .15s ease, background .15s ease, transform .1s ease;
   }
-  .panel-archive-btn:active, .panel-delete-btn:active{transform:scale(.97);}
+  .panel-archive-btn:active, .panel-delete-btn:active, .panel-release-btn:active{transform:scale(.97);}
   .panel-archive-btn:hover{border-color:var(--amber);color:var(--amber);background:rgba(242,193,78,.06);}
   .panel-delete-btn:hover{border-color:var(--coral);color:var(--coral);background:rgba(255,107,106,.06);}
+  .panel-release-btn:hover{border-color:var(--teal);color:var(--teal);background:rgba(79,200,191,.06);}
 
   /* ---------- Trash ---------- */
   .ticket.is-trashed{opacity:.88;}
@@ -1064,6 +1072,21 @@
   .insights-show-date{font-family:'IBM Plex Mono',monospace;color:var(--text);flex:0 0 auto;}
   .insights-show-venue{color:var(--muted);flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .insights-show-archived{flex:0 0 auto;opacity:.7;}
+  .insights-show-row.is-historical{opacity:.7;}
+  .insights-show-past{
+    flex:0 0 auto;font-size:10.5px;font-family:'Inter',sans-serif;font-weight:600;
+    color:var(--muted);
+  }
+  .insights-code-list{display:flex;flex-direction:column;gap:6px;}
+  .insights-code-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:6px 10px;border-radius:6px;background:rgba(242,193,78,.06);
+    border:1px solid rgba(242,193,78,.2);
+  }
+  .insights-code-row.is-historical{background:rgba(255,255,255,.02);border-color:var(--hairline);}
+  .insights-code-value{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--amber);font-size:12.5px;}
+  .insights-code-row.is-historical .insights-code-value{color:var(--muted);}
+  .insights-code-show{font-size:11px;color:var(--muted);flex:0 0 auto;text-align:right;}
   .insights-timeline-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;}
   .insights-timeline-entry{
     border-left:2px solid var(--hairline);padding-left:10px;
@@ -1276,15 +1299,18 @@
     .day-grid{grid-template-columns:1fr;}
     .ticket-main{flex-direction:column;}
     .ticket-info{flex:0 0 auto;} /* same fix as the container query above — don't stretch vertically */
-    .ticket-actions{flex-direction:row;flex-wrap:wrap;min-width:0;}
-    /* Each platform gets its own full-width row instead of trying to
-       pack two per row — with 3 buttons, two-per-row wrapping leaves
-       the third one alone on its own line with a big dead gap next to
-       it (exactly the awkward, inconsistent look being reported here).
-       Stacking all of them full-width is more predictable regardless of
-       how many links a card has, and the buttons end up easier to tap
-       too. */
-    .link-row{flex:1 1 100%;}
+    /* A real 2-column grid instead of full-width stacked buttons — full
+       width was wasting roughly half of each button's row doing
+       nothing, at a screen size where every pixel of vertical room
+       matters most. The awkward part previously avoided by going
+       full-width was a lone third button left half-alone with a dead
+       gap next to it when only 2 fit per row — grid solves that
+       properly instead of avoiding it: an odd one out spans the full
+       width of its own row (via the last-child-of-an-odd-count
+       selector below) instead of sitting stranded next to empty space. */
+    .ticket-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+    .link-row{display:flex;min-width:0;}
+    .link-row:last-child:nth-child(odd){grid-column:1 / -1;}
 
     /* Only one card fits per row anyway, so there's no reason for text
        to be scaled down for a high desktop column count someone set on
@@ -1292,8 +1318,8 @@
        and controls regardless of whatever data-density says. */
     html[data-density]{
       --f-name:17px; --f-venue:14px; --f-time:13.5px; --f-date:17px; --f-badge:13px;
-      --f-link:13px; --minw-info:0; --minw-actions:0;
-      --copybtn-w:46px; --icon-size:38px; --pad-card:10px 14px 12px; --f-chip:11.5px;
+      --f-link:12.5px; --minw-info:0; --minw-actions:0;
+      --copybtn-w:36px; --icon-size:34px; --pad-card:10px 14px 12px; --f-chip:11.5px;
     }
 
     /* A single-column phone layout has no "neighboring card" for the
@@ -3173,6 +3199,29 @@ async function deleteSingleEvent(key){
   await moveEventToTrash(trashedEvent);
 }
 
+// "Release" is deliberately a different action from Delete, not just a
+// different label on the same one — Delete goes to Trash (meant for
+// "I didn't mean to do that," restorable back onto the sheet exactly as
+// it was). Release means the presale genuinely ran its course: it comes
+// off the active list for good, but goes straight to History instead,
+// where buildArtistInsights already looks — so the next time this
+// artist comes up (a new show, a search, anything), its code and notes
+// are still sitting right there under "Past," not lost the moment the
+// card itself disappeared.
+async function releaseFromPresale(key){
+  const inActive = allEvents.find(e => eventKey(e) === key);
+  if(!inActive) return;
+  pushUndo();
+  const ann = getAnnotation(key);
+  const releasedEvent = { ...inActive, note: ann.note || '', rating: ann.rating || 0, pinned: false, sections: ann.sections || [], isNew: false, archived: false, noteHistory: ann.noteHistory || [], priceHistory: ann.priceHistory || [], extraLinks: ann.extraLinks || [], deletedAt: new Date().toISOString(), deletedFromSheet: activeSheetName };
+  allEvents = allEvents.filter(e => eventKey(e) !== key);
+  delete annotations[key];
+  if(openNotesKey === key){ openNotesKey = null; noteSnapshotOnOpen = null; }
+  render();
+  await pushActiveSheetToRemote();
+  await archiveSheetSnapshot(activeSheetName, [releasedEvent]);
+}
+
 // Puts a trashed event back on whatever sheet it came from, with its
 // note/sections/history all still intact (they were never touched while
 // it sat in the trash — restoring is just moving the same object back).
@@ -3961,7 +4010,8 @@ function renderPresale(){
       if(g.showHeading){
         flushPinnedGrid();
         const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading);
+        const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading, '', bulkCodeKeys);
       }
       g.events.forEach(ev => pinnedPending.push(cardHtmlPresale(ev)));
     });
@@ -4003,7 +4053,8 @@ function renderPresale(){
     if(isHourBand) html += `<div class="presale-hour-band" style="--hour-color:${HOUR_BAND_COLORS[hourBandIndex++ % HOUR_BAND_COLORS.length]}">`;
     if(g.showHeading){
       const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys, null, isHourBand ? 'hour-heading' : '');
+      const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys, null, isHourBand ? 'hour-heading' : '', bulkCodeKeys);
     }
     if(sortMode === 'date'){
       // Within a single presale-time (or show-date-fallback) bucket,
@@ -4019,7 +4070,7 @@ function renderPresale(){
       // heading at the same level.
       groupByName(g.events).forEach(nameGroup => {
         if(nameGroup.showHeading){
-          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading, 'artist-subheading');
+          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading, 'artist-subheading', nameGroup.events.map(eventKey));
         }
         html += `<div class="day-grid" ${colStyle}>${nameGroup.events.map(cardHtmlPresale).join('')}</div>`;
       });
@@ -4289,7 +4340,8 @@ function renderStandard(){
       if(g.showHeading){
         flushPinnedGrid();
         const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-        htmlParts.push(dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading));
+        const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+        htmlParts.push(dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading, '', bulkCodeKeys));
       }
       g.events.forEach(ev => pinnedPending.push(cardHtmlStandard(ev)));
     });
@@ -4311,7 +4363,8 @@ function renderStandard(){
       // headings (Name/Venue sort) — a date heading like "Friday, April
       // 3" isn't a category to pin the way an artist or venue is.
       const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-      htmlParts.push(dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys));
+      const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+      htmlParts.push(dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys, null, '', bulkCodeKeys));
     }
     g.events.forEach(ev => pendingCards.push(cardHtmlStandard(ev)));
   });
@@ -4386,18 +4439,13 @@ function extraLinkRowHtml(key, link){
 // under the venue so that's visible without opening the card, and a
 // "Presale info" section inside the expanded panel (see notesPanelHtml)
 // for adding/editing the code and public sale date.
-function cardHtmlPresale(ev){
-  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
-  const buttons = [
-    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
-    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
-    linkRow(ev.stubLink, 'StubHub', 'site-stub')
-  ].filter(Boolean).join('');
-  const key = eventKey(ev);
-  const ann = getAnnotation(key);
-  const isOpen = key === openNotesKey;
-  const isSelected = selectMode && selectedKeys.has(key);
-
+// Shared between every card type — a code can show up on any show, not
+// just presales. Shows the code(s) as click-to-copy chips when present;
+// when there's nothing yet, shows a small "+ Add code" affordance
+// instead of just silently showing nothing, since there was previously
+// no visible way to tell a code COULD be added without already knowing
+// to open the panel and hunt for the field.
+function codeMetaRowHtml(ev, showAddPrompt = true){
   const metaBits = [];
   // A code cell can hold more than one code (e.g. "UNIQUE, BACKUP2") —
   // split and show each as its own clickable chip so copying one
@@ -4414,9 +4462,31 @@ function cardHtmlPresale(ev){
       <svg class="icon-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
     </button>`).join('');
     metaBits.push(`<span class="presale-meta-item">${codes.length > 1 ? 'Codes' : 'Code'} ${codeChips}</span>`);
+  } else if(showAddPrompt){
+    // Only on presale cards, where a code is expected often enough that
+    // an always-visible prompt earns its space — on a standard sheet
+    // (where most cards will never have one) this same prompt on every
+    // single card would just be clutter; the field is still reachable
+    // there through the notes panel, just without the standing nudge.
+    metaBits.push(`<button type="button" class="add-code-btn" data-action="add-code" data-key="${escapeHtml(eventKey(ev))}" title="Add a code for this show">+ Add code</button>`);
   }
   if(ev.publicSaleDateStr && ev.publicSaleDateStr.trim()) metaBits.push(`<span class="presale-meta-item">Public sale ${escapeHtml(formatCompactDateTime(ev.publicSaleDateStr))}</span>`);
-  const metaRow = metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
+  return metaBits.length ? `<div class="presale-meta-row">${metaBits.join('')}</div>` : '';
+}
+
+function cardHtmlPresale(ev){
+  const dateHeadline = ev.dateObj ? formatDateTimeHeadline(ev.dateObj) : '';
+  const buttons = [
+    linkRow(ev.primaryLink, siteLabel(ev.primarySite), siteClass(ev.primarySite)),
+    linkRow(ev.vividLink, 'VividSeats', 'site-vivid'),
+    linkRow(ev.stubLink, 'StubHub', 'site-stub')
+  ].filter(Boolean).join('');
+  const key = eventKey(ev);
+  const ann = getAnnotation(key);
+  const isOpen = key === openNotesKey;
+  const isSelected = selectMode && selectedKeys.has(key);
+
+  const metaRow = codeMetaRowHtml(ev);
 
   return `
     <div class="ticket mode-presale-card ${ann.pinned ? 'is-pinned' : ''} ${isSelected ? 'is-selected' : ''}" data-key="${escapeHtml(key)}">
@@ -4504,6 +4574,7 @@ function cardHtmlStandard(ev){
           <div class="ticket-info">
             <div class="ev-name ev-name-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every show with this name">${escapeHtml(ev.name)}</div>
             <div class="ev-venue">${escapeHtml(ev.venue)}</div>
+            ${codeMetaRowHtml(ev, false)}
           </div>
           <div class="ticket-actions">
             ${buttons || '<span class="no-links">No ticket links yet</span>'}
@@ -4672,12 +4743,28 @@ function buildArtistInsights(anchorKey){
   const anchorEv = allEvents.find(e => eventKey(e) === anchorKey);
   if(!anchorEv) return null;
   const normName = normalizeShowName(anchorEv.name);
+  // Past shows for this same artist — cleared, released from a presale
+  // sheet, or otherwise moved to History — still count here. A code
+  // that was only ever used on a show that's since been cleared out
+  // would otherwise become unfindable the moment that show was removed,
+  // even though the whole point of tracking it was to have it on hand
+  // again later. Deduped against the live list by key, since a show
+  // that's simultaneously live AND already in History (shouldn't
+  // normally happen, but isn't worth crashing over) shouldn't show up
+  // twice with the same key.
+  const liveKeys = new Set(allEvents.map(eventKey));
+  const histSheet = sheets.find(s => s.mode === 'history');
+  const histEvents = histSheet ? remoteCache.filter(r => r.appSheet === histSheet.name) : [];
+  const historicalMatches = histEvents
+    .filter(ev => normalizeShowName(ev.name) === normName && !liveKeys.has(eventKey(ev)))
+    .map(ev => ({ ev, key: eventKey(ev), ann: { note: ev.note || '', sections: ev.sections || [], noteHistory: ev.noteHistory || [], priceHistory: ev.priceHistory || [], isNew: false, archived: false }, isHistorical: true }));
   const shows = allEvents
     .filter(e => normalizeShowName(e.name) === normName)
     .map(ev => {
       const key = eventKey(ev);
       return { ev, key, ann: getAnnotation(key) };
     })
+    .concat(historicalMatches)
     .sort((a, b) => {
       const ad = a.ev.dateObj ? new Date(a.ev.dateObj).getTime() : Infinity;
       const bd = b.ev.dateObj ? new Date(b.ev.dateObj).getTime() : Infinity;
@@ -4766,7 +4853,7 @@ function buildArtistInsights(anchorKey){
 }
 
 function insightsBodyHtml(insights){
-  const { shows, timeline, labelStats, commonDropHour, newCount, totalCount, dateRange, uniqueVenues } = insights;
+  const { shows, showLabel, timeline, labelStats, commonDropHour, newCount, totalCount, dateRange, uniqueVenues } = insights;
 
   const summaryBits = [`<span class="insights-stat"><b>${totalCount}</b> show${totalCount === 1 ? '' : 's'} tracked</span>`];
   if(dateRange){
@@ -4782,15 +4869,32 @@ function insightsBodyHtml(insights){
     summaryBits.push(`<span class="insights-stat">Usually drops around <b>${escapeHtml(timeLabel)}</b> <span class="insights-stat-sub">(${commonDropHour.count}/${commonDropHour.of} shows)</span></span>`);
   }
 
-  const showsHtml = shows.map(({ ev, ann }) => {
+  const showsHtml = shows.map(({ ev, ann, isHistorical }) => {
     const dateStr = ev.dateObj ? new Date(ev.dateObj).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date TBD';
-    return `<div class="insights-show-row">
+    return `<div class="insights-show-row ${isHistorical ? 'is-historical' : ''}">
       <span class="insights-show-date">${escapeHtml(dateStr)}</span>
       <span class="insights-show-venue">${escapeHtml(ev.venue || '')}</span>
+      ${isHistorical ? '<span class="insights-show-past" title="No longer on an active sheet — kept in History">📜 Past</span>' : ''}
       ${ann.isNew ? '<span class="new-badge">NEW</span>' : ''}
       ${ann.archived ? '<span class="insights-show-archived">📦</span>' : ''}
     </div>`;
   }).join('');
+
+  // Every code ever logged for this artist, across every show — live
+  // AND historical — so a code used on a presale that's since been
+  // cleared out is still right here the next time this artist comes up,
+  // instead of only existing on a card that no longer exists anywhere
+  // you'd think to look.
+  const codeEntries = [];
+  shows.forEach(({ ev, isHistorical }) => {
+    (ev.code || '').split(',').map(c => c.trim()).filter(Boolean).forEach(code => {
+      codeEntries.push({ code, showLabel: showLabel(ev), isHistorical });
+    });
+  });
+  const codesHtml = codeEntries.length ? codeEntries.map(c => `<div class="insights-code-row ${c.isHistorical ? 'is-historical' : ''}">
+      <span class="insights-code-value">${escapeHtml(c.code)}</span>
+      <span class="insights-code-show">${escapeHtml(c.showLabel)}${c.isHistorical ? ' · 📜 past' : ''}</span>
+    </div>`).join('') : '';
 
   const timelineHtml = timeline.length ? timeline.map(t => {
     const when = t.current ? 'Current' : (t.when ? new Date(t.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -4830,6 +4934,7 @@ function insightsBodyHtml(insights){
     <div class="insights-summary">${summaryBits.join('')}</div>
     <p class="notes-label">Shows (${shows.length})</p>
     <div class="insights-shows-list">${showsHtml}</div>
+    ${codesHtml ? `<p class="notes-label">Codes</p><div class="insights-code-list">${codesHtml}</div>` : ''}
     <p class="notes-label">Price patterns</p>
     <div class="insights-price-list">${priceHtml}</div>
     <p class="notes-label">Notes timeline</p>
@@ -4950,25 +5055,36 @@ function notesPanelHtml(key, ann, ev, showPresaleFields = false){
   // public sale opens. Reuses the same .presale-link-input plumbing
   // (generic data-field write straight onto the event) as the ticket
   // links above, just with different field names.
+  //
+  // Code is available on every card type, not just presale — a show can
+  // pick up a promo/access code from anywhere, not only a presale sheet.
+  // Public sale date stays presale-specific, since "when does general
+  // public sale open" is only really a presale-tracking concept.
+  const codeFieldHtml = ev ? `
+    <div class="presale-link-row">
+      <span class="presale-link-label">Code</span>
+      <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="code" value="${escapeHtml(ev.code || '')}" placeholder="Code (comma-separate for more than one)">
+      ${ev.code && ev.code.trim() ? `<button type="button" class="copy-btn presale-copy" data-href="${escapeHtml(ev.code)}" title="Copy code">
+        <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>` : '<span class="presale-link-empty-spacer"></span>'}
+    </div>` : '';
   const presaleFieldsHtml = (showPresaleFields && ev) ? `
     <div class="panel-section">
       <p class="notes-label">🎟️ Presale info</p>
       <div class="presale-links">
-        <div class="presale-link-row">
-          <span class="presale-link-label">Code</span>
-          <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="code" value="${escapeHtml(ev.code || '')}" placeholder="Presale code">
-          ${ev.code && ev.code.trim() ? `<button type="button" class="copy-btn presale-copy" data-href="${escapeHtml(ev.code)}" title="Copy code">
-            <svg class="icon-copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            <svg class="icon-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-          </button>` : '<span class="presale-link-empty-spacer"></span>'}
-        </div>
+        ${codeFieldHtml}
         <div class="presale-link-row">
           <span class="presale-link-label">Public sale</span>
           <input type="text" class="presale-link-input" data-key="${escapeHtml(key)}" data-field="publicSaleDateStr" value="${escapeHtml(ev.publicSaleDateStr || '')}" placeholder="e.g. Fri, Sep 12, 10:00 AM">
           <span class="presale-link-empty-spacer"></span>
         </div>
       </div>
-    </div>` : '';
+    </div>` : (ev ? `
+    <div class="panel-section">
+      <p class="notes-label">🎟️ Code</p>
+      <div class="presale-links">${codeFieldHtml}</div>
+    </div>` : '');
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
       ${presaleFieldsHtml}
@@ -4988,6 +5104,7 @@ function notesPanelHtml(key, ann, ev, showPresaleFields = false){
       </div>
       ${linksHtml}
       <div class="panel-action-row">
+        ${showPresaleFields ? `<button type="button" class="panel-release-btn" data-action="release-presale" data-key="${escapeHtml(key)}" title="Take this off the active presale list, but keep its code and notes permanently searchable under this artist">📜 Release</button>` : ''}
         <button type="button" class="panel-archive-btn" data-action="archive" data-key="${escapeHtml(key)}">${ann.archived ? '📤 Unarchive' : '📦 Archive'}</button>
         <button type="button" class="panel-delete-btn" data-action="delete" data-key="${escapeHtml(key)}">🗑 Delete</button>
       </div>
@@ -5026,6 +5143,7 @@ function shiftBlockHtml(ev, shift){
         <div class="shift-block-info">
           ${time ? `<div class="ev-time">${time}</div>` : ''}
           ${subParts.length ? `<div class="ev-sub">${escapeHtml(subParts.join(' · '))}</div>` : ''}
+          ${codeMetaRowHtml(ev, false)}
         </div>
         <div class="ticket-actions">
           ${buttons || '<span class="no-links">No ticket links yet</span>'}
@@ -5114,20 +5232,42 @@ function openAllLinksForCategory(gridEl, platformClass, platformLabel){
 // click always works. A loop firing 20+ opens from that same click does
 // not — different browsers cap it at different counts, some silently
 // drop the rest, and there's no page-level way to detect or override
-// that. Rather than gamble on "some number probably goes through", this
-// opens exactly one link per click and leaves a small floating control
-// on screen so getting the rest open is a few more taps of one button —
-// slower than a single click, but every single tab is guaranteed to
-// actually open, on every browser, every time.
+// that. So "Open next" (one link per click) stays the default, reliable
+// path — but "Try opening all at once" is also offered as an explicit
+// opt-in gamble, since some browsers/extensions genuinely do allow a
+// full burst through and it costs nothing to try it first.
 let bulkOpenQueue = null; // { urls, index, label }
 function startBulkOpenQueue(urls, label){
   bulkOpenQueue = { urls, index: 0, label };
   openNextInBulkQueue();
 }
+// window.open() alone usually steals focus to the new tab — the
+// opposite of a real ctrl/cmd-click, which opens a tab in the
+// background and leaves you exactly where you were. Calling
+// window.focus() on THIS window right after is the standard trick to
+// claw focus back; it's not something a page can force in every
+// browser (some browsers deliberately ignore script-driven focus
+// changes to stop exactly this kind of thing), but it's the best a page
+// can do, and it does work in most of them.
+function openUrlInBackground(url){
+  window.open(url, '_blank', 'noopener');
+  window.focus();
+}
 function openNextInBulkQueue(){
   if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length) return;
-  window.open(bulkOpenQueue.urls[bulkOpenQueue.index], '_blank', 'noopener');
+  openUrlInBackground(bulkOpenQueue.urls[bulkOpenQueue.index]);
   bulkOpenQueue.index++;
+  renderBulkOpenToast();
+}
+// The opt-in gamble: fires every remaining URL in one burst. Whatever a
+// given browser lets through, goes through — there's no way to know in
+// advance, which is the whole reason "Open next" exists as the default
+// instead of this.
+function tryOpenAllRemainingInQueue(){
+  if(!bulkOpenQueue) return;
+  const remaining = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
+  remaining.forEach(url => openUrlInBackground(url));
+  bulkOpenQueue.index = bulkOpenQueue.urls.length;
   renderBulkOpenToast();
 }
 function renderBulkOpenToast(){
@@ -5142,7 +5282,8 @@ function renderBulkOpenToast(){
   bulkOpenToast.innerHTML = `
     <span class="bulk-open-toast-text">Opened ${index} of ${urls.length} ${escapeHtml(label)} links</span>
     <button type="button" class="bulk-open-toast-btn primary" data-action="bulk-open-next">Open next (${remaining} left)</button>
-    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-copy-rest">Copy remaining links</button>
+    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-try-all" title="Not guaranteed — depends entirely on what your browser allows">Try opening all at once</button>
+    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-copy-next">Copy next link</button>
     <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-dismiss">Done</button>
   `;
 }
@@ -5155,13 +5296,30 @@ bulkOpenToast.addEventListener('click', e => {
     openNextInBulkQueue();
     return;
   }
-  const copyBtn = e.target.closest('[data-action="bulk-open-copy-rest"]');
+  if(e.target.closest('[data-action="bulk-open-try-all"]')){
+    tryOpenAllRemainingInQueue();
+    return;
+  }
+  // Copies just the NEXT link and advances the queue by one, same
+  // rhythm as "Open next" — meant for going down the list by pasting
+  // into a different browser one at a time (rather than opening
+  // anything here), so each click needs to hand over exactly one URL,
+  // not the whole remaining batch at once.
+  const copyBtn = e.target.closest('[data-action="bulk-open-copy-next"]');
   if(copyBtn){
-    if(bulkOpenQueue){
-      const rest = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
-      copyToClipboard(rest.join('\n'));
-      copyBtn.textContent = 'Copied!';
-      setTimeout(() => { if(bulkOpenQueue) renderBulkOpenToast(); }, 1200);
+    if(bulkOpenQueue && bulkOpenQueue.index < bulkOpenQueue.urls.length){
+      copyToClipboard(bulkOpenQueue.urls[bulkOpenQueue.index]);
+      bulkOpenQueue.index++;
+      const doneNow = !bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length;
+      renderBulkOpenToast();
+      if(!doneNow){
+        const newCopyBtn = bulkOpenToast.querySelector('[data-action="bulk-open-copy-next"]');
+        if(newCopyBtn){
+          const original = newCopyBtn.textContent;
+          newCopyBtn.textContent = 'Copied!';
+          setTimeout(() => { if(newCopyBtn.isConnected) newCopyBtn.textContent = original; }, 900);
+        }
+      }
     }
     return;
   }
@@ -5337,7 +5495,8 @@ function renderBroadway(){
       if(g.showHeading){
         flushPinnedGrid();
         const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading);
+        const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+        html += dayHeadingHtml(g.heading, '', pinKeys, 'pinned:' + g.heading, '', bulkCodeKeys);
       }
       g.events.forEach(ev => pinnedPending.push(pinnedCardHtml(ev)));
     });
@@ -5350,7 +5509,8 @@ function renderBroadway(){
     const isToday = g.heading && firstEv && firstEv.dateObj && isSameDay(new Date(firstEv.dateObj), now) && sortMode === 'date';
     if(g.showHeading){
       const pinKeys = (sortMode === 'name' || sortMode === 'venue') ? g.events.map(eventKey) : null;
-      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys);
+      const bulkCodeKeys = sortMode === 'name' ? pinKeys : null;
+      html += dayHeadingHtml(g.heading, isToday ? '<span class="tag-today">Today</span>' : '', pinKeys, null, '', bulkCodeKeys);
     }
     // Split into per-show subgroups so a merged card never mixes two
     // different shows' sessions together. When already grouped by date,
@@ -5370,7 +5530,7 @@ function renderBroadway(){
 // very next .day-grid via an adjacent-sibling rule. The section key is
 // just the heading text — unique within a given render in every case
 // this app produces one.
-function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverride = null, extraClass = ''){
+function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverride = null, extraClass = '', bulkCodeKeys = null){
   const key = sectionKeyOverride || label;
   const collapsed = collapsedSections.has(key);
   let pinBtn = '';
@@ -5380,9 +5540,18 @@ function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverrid
       <svg width="14" height="14" viewBox="0 0 24 24" fill="${allPinned ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M12 17v5M8 3h8l-1 7 3 3H6l3-3-1-7z"/></svg>
     </button>`;
   }
+  // "Set a code for the whole tour in one shot" — every show under this
+  // heading (every date, every venue) gets the same code applied at
+  // once, instead of opening each card individually and retyping it.
+  let bulkCodeBtn = '';
+  if(bulkCodeKeys && bulkCodeKeys.length){
+    bulkCodeBtn = `<button type="button" class="icon-btn heading-code-btn" data-action="bulk-add-code" data-keys="${escapeHtml(JSON.stringify(bulkCodeKeys))}" title="Set a code for every show in this group at once">
+      🎟️+
+    </button>`;
+  }
   return `<div class="day-heading collapsible-heading ${extraClass} ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
     <svg class="collapse-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
-    <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}${pinBtn}
+    <span class="heading-label">${escapeHtml(label)}</span>${extraHtml}${bulkCodeBtn}${pinBtn}
   </div>`;
 }
 
@@ -5539,6 +5708,35 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Sets the same code on every show under this heading in one go —
+  // built for exactly the case in the screenshot that prompted it: a
+  // whole tour's worth of shows sharing one presale code, instead of
+  // opening each card and retyping the same thing. Existing per-show
+  // codes are overwritten outright rather than merged/appended — this
+  // is meant as "set the code for this group," not "add another code
+  // alongside whatever's already there," which would get confusing fast
+  // across a dozen shows with an unknown mix of prior values.
+  const bulkCodeBtn = e.target.closest('[data-action="bulk-add-code"]');
+  if(bulkCodeBtn){
+    let keys = [];
+    try { keys = JSON.parse(bulkCodeBtn.dataset.keys || '[]'); } catch(err) { keys = []; }
+    if(!keys.length) return;
+    const code = prompt(`Set a code for all ${keys.length} shows in this group (comma-separate for more than one):`);
+    if(code === null) return;
+    pushUndo();
+    keys.forEach(k => {
+      const ev = findEventByKey(k);
+      if(!ev) return;
+      ev.code = code;
+      if(!allEvents.includes(ev) && searchAnnotationsMap && searchAnnotationsMap.has(k)){
+        dirtySheets.add(searchAnnotationsMap.get(k).sheetName);
+      }
+    });
+    saveNotesSoon();
+    render();
+    return;
+  }
+
   // Checked before the heading-collapse toggle for the same reason as
   // the pin-group button above — this lives inside the heading too.
   const bulkOpenBtn = e.target.closest('[data-action="bulk-open"]');
@@ -5653,6 +5851,14 @@ listRoot.addEventListener('click', async e => {
     ann.archived = !ann.archived;
     saveNotesSoon();
     render();
+    return;
+  }
+
+  const releaseBtn = e.target.closest('[data-action="release-presale"]');
+  if(releaseBtn){
+    if(confirm('Release this from the active presale list? Its code and notes stay searchable under this artist in History, but it comes off this sheet for good.')){
+      releaseFromPresale(releaseBtn.dataset.key);
+    }
     return;
   }
 
@@ -5787,6 +5993,18 @@ listRoot.addEventListener('click', async e => {
       const ta = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] .notes-textarea`);
       if(ta) ta.focus();
     }
+    return;
+  }
+
+  // "+ Add code" opens the panel straight to the code field instead of
+  // the notes textarea — that's specifically what this click means to
+  // do, so land the cursor there instead of making them go find it.
+  const addCodeBtn = e.target.closest('[data-action="add-code"]');
+  if(addCodeBtn){
+    const key = addCodeBtn.dataset.key;
+    if(openNotesKey !== key){ pushUndo(); openNotesPanel(key); render(); }
+    const codeInput = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] [data-field="code"]`);
+    if(codeInput) codeInput.focus();
     return;
   }
 
@@ -6012,6 +6230,16 @@ listRoot.addEventListener('focusout', e => {
   if(!ann.priceHistory) ann.priceHistory = [];
   ann.priceHistory.push({ label: row.label || '', price: oldValue, removedAt: new Date().toISOString() });
   saveNotesSoon();
+  // This was the actual bug: the entry above was always being recorded
+  // correctly, but without a re-render here nothing on screen reflects
+  // it — the "Price history (N)" toggle keeps showing its old count
+  // until something else happens to trigger a render, making a change
+  // that DID save look like it silently vanished. Deferred (not
+  // immediate) for the same reason the link-input focusout render is —
+  // this fires mid-blur, and rendering synchronously here could yank
+  // the DOM out from under whatever click caused the blur in the first
+  // place.
+  setTimeout(render, 0);
 });
 
 ['dragenter','dragover'].forEach(evt => {
