@@ -358,6 +358,20 @@
   }
   .heading-pin-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
   .heading-pin-btn.active{color:var(--pin);transform:rotate(-10deg);}
+  .heading-code-btn{
+    position:relative;margin-left:auto;flex:0 0 auto;
+    width:26px;height:26px;border-radius:6px;border:1px solid transparent;
+    background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;
+  }
+  /* If a pin button follows it, that one's own margin-left:auto only
+     pushes itself right, not this — without its own auto margin too,
+     this would be left stranded right after the label text instead of
+     grouped with the pin button over on the right. */
+  .heading-code-btn + .heading-pin-btn{margin-left:0;}
+  .heading-code-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--amber);}
+  .heading-code-btn-plus{position:absolute;right:1px;bottom:1px;background:var(--card);border-radius:50%;}
+  .day-heading.collapsed .heading-code-btn{display:none;}
   .bulk-open-links{margin-left:auto;flex:0 0 auto;display:flex;gap:6px;}
   .bulk-open-btn{
     font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
@@ -5080,11 +5094,16 @@ function notesPanelHtml(key, ann, ev, showPresaleFields = false){
           <span class="presale-link-empty-spacer"></span>
         </div>
       </div>
-    </div>` : (ev ? `
+    </div>` : '';
+  // On a regular (non-presale) sheet, Code sits AFTER Sections & Prices
+  // instead of before it — prices are what you're checking first there;
+  // presale sheets keep Code up top since it's usually the first thing
+  // worth grabbing on those.
+  const standardCodeHtml = (!showPresaleFields && ev) ? `
     <div class="panel-section">
       <p class="notes-label">🎟️ Code</p>
       <div class="presale-links">${codeFieldHtml}</div>
-    </div>` : '');
+    </div>` : '';
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
       ${presaleFieldsHtml}
@@ -5097,6 +5116,7 @@ function notesPanelHtml(key, ann, ev, showPresaleFields = false){
         <div class="price-chips">${chips}</div>
         ${priceHistoryHtml(key, ann)}
       </div>
+      ${standardCodeHtml}
       <div class="panel-section">
         <p class="notes-label">📝 Notes</p>
         <textarea class="notes-textarea" placeholder="Anything worth remembering about this one…" data-key="${escapeHtml(key)}">${escapeHtml(ann.note)}</textarea>
@@ -5241,17 +5261,29 @@ function startBulkOpenQueue(urls, label){
   bulkOpenQueue = { urls, index: 0, label };
   openNextInBulkQueue();
 }
-// window.open() alone usually steals focus to the new tab — the
-// opposite of a real ctrl/cmd-click, which opens a tab in the
-// background and leaves you exactly where you were. Calling
-// window.focus() on THIS window right after is the standard trick to
-// claw focus back; it's not something a page can force in every
-// browser (some browsers deliberately ignore script-driven focus
-// changes to stop exactly this kind of thing), but it's the best a page
-// can do, and it does work in most of them.
+// window.open() doesn't go through the browser's own link-handling logic
+// at all — it's treated as a fresh popup request, which is why it kept
+// stealing focus even with a window.focus() call tacked on afterward
+// (some browsers just don't let a script reclaim focus once a real new
+// tab has already taken it). A genuine ctrl/cmd-click on an actual <a>
+// element is different: the browser handles THAT natively, and its
+// native handling is exactly what respects "open in the background,
+// stay right where I am." So instead of window.open(), this builds a
+// real (invisible) link and dispatches a synthetic click on it with the
+// ctrl/cmd modifier held down — same code path a real modifier-click
+// would take, which is the only way to reliably get real background-tab
+// behavior from a script. Sets both ctrlKey and metaKey so it works the
+// same way on Windows/Linux (ctrl) and Mac (cmd) without needing to
+// detect which platform it's running on.
 function openUrlInBackground(url){
-  window.open(url, '_blank', 'noopener');
-  window.focus();
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, ctrlKey: true, metaKey: true, button: 0 }));
+  a.remove();
 }
 function openNextInBulkQueue(){
   if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length) return;
@@ -5259,10 +5291,16 @@ function openNextInBulkQueue(){
   bulkOpenQueue.index++;
   renderBulkOpenToast();
 }
-// The opt-in gamble: fires every remaining URL in one burst. Whatever a
-// given browser lets through, goes through — there's no way to know in
-// advance, which is the whole reason "Open next" exists as the default
-// instead of this.
+// The opt-in gamble: fires every remaining URL in one burst using the
+// same real-anchor-plus-modifier-click approach above (rather than raw
+// window.open() calls in a loop, which is what "opening all at once"
+// used before and is exactly the pattern popup blockers are built to
+// catch). Dispatching genuine modifier-clicks on real links is treated
+// much more like normal browsing by a popup blocker than a burst of
+// script-driven window.open() calls — it's still not a hard guarantee
+// across every browser and setting, but it's a meaningfully different
+// and stronger approach than what was here before, not just a relabel
+// of the same thing.
 function tryOpenAllRemainingInQueue(){
   if(!bulkOpenQueue) return;
   const remaining = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
@@ -5543,10 +5581,25 @@ function dayHeadingHtml(label, extraHtml = '', pinKeys = null, sectionKeyOverrid
   // "Set a code for the whole tour in one shot" — every show under this
   // heading (every date, every venue) gets the same code applied at
   // once, instead of opening each card individually and retyping it.
+  // Always rendered into the markup, but hidden via CSS while the
+  // heading is collapsed (see .day-heading.collapsed .heading-code-btn)
+  // rather than left out of the HTML conditionally — collapsing a
+  // heading is a lightweight class toggle on the existing DOM node, not
+  // a full re-render, so a JS-side "only include this when expanded"
+  // check here would never actually re-evaluate when you collapse one.
+  // Showing it on every single collapsed heading in a long list (which
+  // is most of them, most of the time) was just visual noise repeated
+  // dozens of times over, worse than useful — CSS-hiding it solves that
+  // without needing the toggle to trigger a real render. Uses an inline
+  // SVG rather than the 🎟️ emoji — that emoji doesn't render on every
+  // system (shows up as a blank/broken box instead), the same problem
+  // the rest of this app's icons already avoid by not depending on
+  // emoji font coverage at all.
   let bulkCodeBtn = '';
   if(bulkCodeKeys && bulkCodeKeys.length){
     bulkCodeBtn = `<button type="button" class="icon-btn heading-code-btn" data-action="bulk-add-code" data-keys="${escapeHtml(JSON.stringify(bulkCodeKeys))}" title="Set a code for every show in this group at once">
-      🎟️+
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8Z"/><path d="M9 8v8" stroke-dasharray="1.8 1.8"/></svg>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" class="heading-code-btn-plus"><path d="M12 5v14M5 12h14"/></svg>
     </button>`;
   }
   return `<div class="day-heading collapsible-heading ${extraClass} ${collapsed ? 'collapsed' : ''}" data-section="${escapeHtml(key)}">
