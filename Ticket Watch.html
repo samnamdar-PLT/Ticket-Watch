@@ -372,6 +372,14 @@
   .heading-code-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--amber);}
   .heading-code-btn-plus{position:absolute;right:1px;bottom:1px;background:var(--card);border-radius:50%;}
   .day-heading.collapsed .heading-code-btn{display:none;}
+  /* Presale's artist sub-heading is a narrow, indented row (unlike a
+     regular sheet's full-width artist heading), so pushing its icons
+     all the way to the far right — same rule that reads fine on a
+     normal-width heading — instead strands them way off across the
+     entire remaining list width, disconnected from the name they
+     belong to. Keeping them right next to the name here instead;
+     regular headings elsewhere are untouched. */
+  .artist-subheading .heading-code-btn, .artist-subheading .heading-pin-btn{margin-left:6px;}
   .bulk-open-links{margin-left:auto;flex:0 0 auto;display:flex;gap:6px;}
   .bulk-open-btn{
     font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
@@ -591,6 +599,8 @@
   }
   .ev-name-clickable{cursor:pointer;}
   .ev-name-clickable:hover{text-decoration:underline;text-decoration-color:rgba(79,200,191,.5);}
+  .ev-sub-clickable{cursor:pointer;}
+  .ev-sub-clickable:hover{text-decoration:underline;text-decoration-color:rgba(79,200,191,.5);}
   .ev-venue{
     font-size:var(--f-venue);color:var(--text);opacity:.78;
     line-height:1.35;
@@ -959,7 +969,7 @@
   .theme-toggle-btn{padding:9px 11px;font-size:14px;line-height:1;}
   #syncToggleBtn.connected{border-color:var(--teal);color:var(--teal);}
   .sync-popover{
-    position:absolute;top:calc(100% + 8px);right:0;
+    position:fixed;
     width:300px;
     background:var(--card);
     border:1px solid var(--hairline);
@@ -967,7 +977,8 @@
     box-shadow:0 16px 32px rgba(0,0,0,.45);
     padding:14px;
     display:none;
-    z-index:40;
+    z-index:210;
+    max-height:calc(100vh - 32px);overflow-y:auto;
   }
   .sync-popover.open{display:block;}
   .sync-popover input{
@@ -1411,6 +1422,7 @@
         <option value="venue">By venue</option>
         <option value="name" selected>By name</option>
       </select>
+      <button class="filter-btn" id="expandCollapseBtn" type="button" title="Toggle every section open or closed">⌃ Collapse all</button>
       <div class="col-stepper" id="colStepper" title="Columns">
         <button class="col-btn" id="colMinus" type="button" aria-label="Fewer columns">−</button>
         <span class="col-count" id="colCount">8</span>
@@ -1420,7 +1432,6 @@
         <button class="col-btn" id="undoBtn" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled>↶</button>
         <button class="col-btn" id="redoBtn" type="button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled>↷</button>
       </div>
-      <button class="filter-btn" id="expandCollapseBtn" type="button" title="Toggle every section open or closed">⌃ Collapse all</button>
       <button class="filter-btn" id="newFilterBtn" title="Show only events added in the last upload">🆕 New only</button>
       <button class="filter-btn" id="archiveFilterBtn" title="Show archived events instead of hiding them">📦 Archive</button>
       <button class="btn ghost" id="selectModeBtn" title="Select cards to archive or delete, like picking photos on a phone">🗑 Select</button>
@@ -1453,8 +1464,6 @@
             <div><kbd>/</kbd> Focus search</div>
             <div><kbd>j</kbd> <kbd>k</kbd> or <kbd>↓</kbd> <kbd>↑</kbd> Move down / up a row</div>
             <div><kbd>←</kbd> <kbd>→</kbd> Move to previous / next card</div>
-            <div><kbd>1</kbd>–<kbd>5</kbd> Rate selected card</div>
-            <div><kbd>0</kbd> Clear rating</div>
             <div><kbd>p</kbd> Pin / unpin</div>
             <div><kbd>n</kbd> Open / close notes</div>
             <div><kbd>Enter</kbd> Open ticket link</div>
@@ -2117,6 +2126,8 @@ const moreMenuToggleBtn = $('#moreMenuToggleBtn');
 const moreMenuPopover = $('#moreMenuPopover');
 moreMenuToggleBtn.addEventListener('click', e => {
   e.stopPropagation();
+  const opening = !moreMenuPopover.classList.contains('open');
+  if(opening) positionFixedPopover(moreMenuToggleBtn, moreMenuPopover);
   moreMenuPopover.classList.toggle('open');
 });
 moreMenuPopover.addEventListener('click', e => e.stopPropagation());
@@ -2205,8 +2216,29 @@ function stopSyncPolling(){
   syncTimer = null;
 }
 
+// Positions a fixed popover just under-and-right-aligned to the button
+// that opened it. Needed because position:fixed (unlike the old
+// position:absolute) doesn't automatically track the button's location
+// — but fixed is what's required here, since the toolbar this button
+// lives in scrolls horizontally (see .toolbar's overflow-x rule) and an
+// absolutely-positioned popover inside it was getting silently clipped
+// by that same container's vertical overflow the instant it tried to
+// extend below the toolbar's own short height. That's the actual bug
+// behind "the more menu doesn't open" — it WAS opening, just invisibly.
+function positionFixedPopover(btn, popover){
+  const rect = btn.getBoundingClientRect();
+  const width = 300;
+  let left = rect.right - width;
+  if(left < 8) left = 8;
+  if(left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+  popover.style.left = left + 'px';
+  popover.style.top = (rect.bottom + 8) + 'px';
+}
+
 syncToggleBtn.addEventListener('click', e => {
   e.stopPropagation();
+  const opening = !syncPopover.classList.contains('open');
+  if(opening) positionFixedPopover(syncToggleBtn, syncPopover);
   syncPopover.classList.toggle('open');
 });
 syncPopover.addEventListener('click', e => e.stopPropagation());
@@ -2356,11 +2388,11 @@ async function loadAllFromRemote(){
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
-  render();
   if(activeSheet() && activeSheet().mode === 'presale'){
-    applyExpandCycleState(1);
-    render();
+    expandCycleState = 1;
+    collapsedSections = new Set(computePresaleSubHeadingKeys(allEvents));
   }
+  render();
   updateSyncButtonState();
   setSyncStatus(`Synced ${new Date().toLocaleTimeString()}`, 'ok');
 }
@@ -3601,16 +3633,20 @@ function setActiveSheet(name){
   syncActiveSheetFromCache();
   renderTabs();
   updateModeUI();
-  render();
   // Presale opens straight into "names visible, cards tucked away" —
   // every hour's drop-time heading plus the artists in it, letting you
   // see the whole shape of what's dropping when before scrolling through
-  // any actual cards. Needs one render first so the hour/artist headings
-  // actually exist in the DOM for applyExpandCycleState to collapse.
+  // any actual cards. Computed straight from the data (see
+  // computePresaleSubHeadingKeys) rather than the older render-then-
+  // collapse-then-render-again approach, which rendered the entire card
+  // list twice on every single switch to a presale sheet — for a sheet
+  // with hundreds of events, needlessly doubling the time it took the
+  // view to actually become interactive.
   if(sheet && sheet.mode === 'presale'){
-    applyExpandCycleState(1);
-    render();
+    expandCycleState = 1;
+    collapsedSections = new Set(computePresaleSubHeadingKeys(allEvents));
   }
+  render();
 }
 
 async function renameSheet(oldName){
@@ -3937,6 +3973,25 @@ function render(){
 // any date all land in one "11:00 AM presale" group together. Falls
 // back to grouping by show date for sheets that don't have any
 // presale-date data at all (e.g. cards added by hand).
+// Computes exactly the set of section keys applyExpandCycleState(1)
+// would collapse for a presale sheet, straight from the data — reuses
+// the exact same grouping functions renderPresale() itself calls, so
+// there's no risk of this drifting out of sync with how those headings
+// actually get keyed. Lets the "start in names-visible view" behavior
+// be set up BEFORE the first render instead of after, which avoids
+// rendering the entire card list twice on every load — for a sheet with
+// hundreds of presale events, that's a real, easily avoidable chunk of
+// the time it takes the page to become interactive.
+function computePresaleSubHeadingKeys(events){
+  const keys = [];
+  groupByPresaleOrShowDate(events).forEach(g => {
+    groupByName(g.events).forEach(nameGroup => {
+      if(nameGroup.showHeading) keys.push(g.heading + ' :: ' + nameGroup.heading);
+    });
+  });
+  return keys;
+}
+
 function groupByPresaleOrShowDate(events){
   if(!events.some(e => e.presaleDateObj)) return groupByDate(events);
 
@@ -4084,7 +4139,7 @@ function renderPresale(){
       // heading at the same level.
       groupByName(g.events).forEach(nameGroup => {
         if(nameGroup.showHeading){
-          html += dayHeadingHtml(nameGroup.heading, '', null, g.heading + ' :: ' + nameGroup.heading, 'artist-subheading', nameGroup.events.map(eventKey));
+          html += dayHeadingHtml(nameGroup.heading, '', nameGroup.events.map(eventKey), g.heading + ' :: ' + nameGroup.heading, 'artist-subheading', nameGroup.events.map(eventKey));
         }
         html += `<div class="day-grid" ${colStyle}>${nameGroup.events.map(cardHtmlPresale).join('')}</div>`;
       });
@@ -5162,7 +5217,7 @@ function shiftBlockHtml(ev, shift){
       <div class="shift-block-main">
         <div class="shift-block-info">
           ${time ? `<div class="ev-time">${time}</div>` : ''}
-          ${subParts.length ? `<div class="ev-sub">${escapeHtml(subParts.join(' · '))}</div>` : ''}
+          ${subParts.length ? `<div class="ev-sub ev-sub-clickable" data-action="insights" data-key="${escapeHtml(key)}" title="See notes and price history across every session with this name">${escapeHtml(subParts.join(' · '))}</div>` : ''}
           ${codeMetaRowHtml(ev, false)}
         </div>
         <div class="ticket-actions">
@@ -6003,9 +6058,15 @@ listRoot.addEventListener('click', async e => {
 
   // Clicking an event name opens the cross-show insights modal — notes
   // timeline and price patterns aggregated across every show sharing
-  // this name, not just this one card.
+  // this name, not just this one card. Stops here (doesn't bubble
+  // further) so the document-level "smart notes switch" handler further
+  // up doesn't ALSO treat this same click as "switch the open notes
+  // panel to this card" — opening insights on a different card while
+  // silently swapping which card's notes panel is open underneath it
+  // was a real, confusing double-action from one click.
   const insightsTarget = e.target.closest('[data-action="insights"]');
   if(insightsTarget){
+    e.stopPropagation();
     openInsightsModal(insightsTarget.dataset.key);
     return;
   }
@@ -6088,10 +6149,10 @@ listRoot.addEventListener('click', async e => {
     const row = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,7), label: label, price: '', updatedAt: null };
     ann.sections.push(row);
     saveNotesSoon();
-    const rowsContainer = chip.closest('.ticket-body').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
+    const rowsContainer = chip.closest('.notes-panel').querySelector(`.price-rows[data-rows-key="${CSS.escape(key)}"]`);
     rowsContainer.insertAdjacentHTML('beforeend', priceRowHtml(key, row));
     if(usedModifier){
-      const modContainer = chip.closest('.ticket-body').querySelector('.modifier-chips');
+      const modContainer = chip.closest('.notes-panel').querySelector('.modifier-chips');
       if(modContainer) modContainer.querySelectorAll('.modifier-chip').forEach(c => c.classList.remove('active'));
     }
     // A preset chip (Floor, 100s, etc.) already fills the label, so jump
@@ -6193,7 +6254,7 @@ listRoot.addEventListener('input', e => {
       row[field] = priceField.value;
       row.updatedAt = new Date().toISOString();
       if(field === 'price'){
-        const panel = priceField.closest('.ticket-body');
+        const panel = priceField.closest('.notes-panel');
         const formattedEl = panel.querySelector(`.price-formatted[data-formatted-for="${rowId}"]`);
         if(formattedEl) formattedEl.textContent = formatPriceDisplay(row.price);
       }
