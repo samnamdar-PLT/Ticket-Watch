@@ -1085,9 +1085,17 @@
 
   /* ---------- Insights modal ---------- */
   .insights-modal{max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
-  .calculator-modal{max-width:480px;}
+  .calculator-modal{max-width:580px;}
   .calculator-columns{display:flex;gap:16px;}
-  .calculator-col{flex:1 1 0;min-width:0;}
+  .calculator-col{
+    flex:1 1 0;min-width:0;
+    border-radius:10px;padding:12px;
+    border:1px solid var(--hairline);
+  }
+  .calculator-col-vivid{border-color:rgba(232,60,140,.35);background:rgba(232,60,140,.04);}
+  .calculator-col-tm{border-color:rgba(40,110,235,.35);background:rgba(40,110,235,.04);}
+  .calculator-label-vivid{color:var(--vivid-pink) !important;}
+  .calculator-label-tm{color:var(--tm-blue) !important;}
   .calculator-desc{font-size:11.5px;color:var(--muted);margin:0 0 10px;}
   .calculator-input{
     width:100%;box-sizing:border-box;
@@ -1096,16 +1104,46 @@
     padding:9px 10px;outline:none;
   }
   .calculator-input:focus{border-color:var(--teal);}
-  .calculator-divisor-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
-  .calculator-divisor-row span{color:var(--muted);font-size:13px;}
-  .calculator-divisor{flex:1 1 auto;}
+  .calculator-divisor-grid{
+    display:grid;grid-template-columns:repeat(5, 1fr);gap:5px;
+    margin-top:10px;
+  }
+  .calculator-divisor-btn{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+    padding:7px 0;border-radius:6px;text-align:center;
+    border:1px solid var(--hairline);background:var(--bg);color:var(--muted);
+    cursor:pointer;transition:border-color .15s ease,background .15s ease,color .15s ease,transform .1s ease;
+  }
+  .calculator-divisor-btn:hover{border-color:var(--tm-blue);color:var(--text);}
+  .calculator-divisor-btn:active{transform:scale(.94);}
+  .calculator-divisor-btn.active{background:var(--tm-blue);border-color:var(--tm-blue);color:#fff;}
   .calculator-result{
     margin-top:12px;padding:12px 10px;border-radius:8px;
-    background:rgba(79,200,191,.08);border:1px solid rgba(79,200,191,.25);
+    background:rgba(255,255,255,.04);border:1px solid var(--hairline);
     font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;
-    color:var(--teal);text-align:center;
+    color:var(--text);text-align:center;
   }
-  .calculator-result.is-empty{color:var(--muted);font-size:14px;font-weight:400;background:transparent;border-color:var(--hairline);}
+  .calculator-result.is-empty{color:var(--muted);font-size:14px;font-weight:400;}
+  .calculator-result-vivid:not(.is-empty){background:rgba(232,60,140,.12);border-color:rgba(232,60,140,.4);color:var(--vivid-pink);}
+  .calculator-result-tm:not(.is-empty){background:rgba(40,110,235,.12);border-color:rgba(40,110,235,.4);color:var(--tm-blue);}
+  .calculator-compare{
+    margin-top:16px;padding:14px;border-radius:10px;
+    border:1px solid var(--hairline);background:rgba(255,255,255,.02);
+  }
+  .calculator-compare.is-good{border-color:rgba(111,207,127,.4);background:rgba(111,207,127,.08);}
+  .calculator-compare.is-bad{border-color:rgba(255,107,106,.3);background:rgba(255,107,106,.05);}
+  .calculator-compare-pct{
+    font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;
+    color:var(--muted);text-align:center;margin-bottom:10px;
+  }
+  .calculator-compare.is-good .calculator-compare-pct{color:#6fcf7f;}
+  .calculator-compare.is-bad .calculator-compare-pct{color:var(--coral);}
+  .calculator-compare-rows{display:flex;gap:10px;}
+  .calculator-compare-row{flex:1 1 0;text-align:center;}
+  .calculator-compare-row-label{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+  .calculator-compare-row-value{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:700;color:var(--text);}
+  .calculator-compare.is-good .calculator-compare-row-value{color:#6fcf7f;}
+  .calculator-compare.is-bad .calculator-compare-row-value{color:var(--coral);}
   .insights-modal-header{
     display:flex;align-items:center;justify-content:space-between;
     padding:18px 20px 14px;border-bottom:1px solid var(--hairline);flex:0 0 auto;
@@ -1197,7 +1235,7 @@
     transition:background .15s ease,color .15s ease,border-color .15s ease;
   }
   .history-delete-btn:hover{background:rgba(255,107,106,.12);border-color:var(--coral);color:var(--coral);}
-  .insights-rawhistory-readonly{flex:0 0 auto;font-size:11px;opacity:.5;}
+
 
   /* ---------- History modal ---------- */
   .history-batch{border:1px solid var(--hairline);border-radius:8px;margin-bottom:8px;overflow:hidden;}
@@ -1512,6 +1550,7 @@
           <p class="sync-status" id="syncStatus">Not connected.</p>
         </div>
       </div>
+      <button class="btn ghost theme-toggle-btn" id="openCalculatorDirectBtn" type="button" title="Calculator — VividSeats/Ticketmaster price comparison">🧮</button>
       <div class="sync-wrap">
         <button class="btn ghost theme-toggle-btn" id="moreMenuToggleBtn" title="More">⋯</button>
         <div class="sync-popover" id="moreMenuPopover">
@@ -1519,7 +1558,6 @@
           <button class="menu-row-btn" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
           <button class="menu-row-btn" id="clearBtn" style="display:none;">🗑 Clear data</button>
           <button class="menu-row-btn" id="viewHistoryBtn" title="Browse snapshots saved from past Clear-data actions — kept out of daily use, only shown when you open it">📜 View history</button>
-          <button class="menu-row-btn" id="openCalculatorBtn" title="Quick VividSeats/Ticketmaster price calculator">🧮 Calculator</button>
           <div class="menu-row-divider"></div>
           <p class="notes-label">Keyboard shortcuts</p>
           <div class="shortcuts-list">
@@ -1610,23 +1648,21 @@
     </div>
     <div class="insights-modal-body">
       <div class="calculator-columns">
-        <div class="calculator-col">
-          <p class="notes-label">VividSeats</p>
+        <div class="calculator-col calculator-col-vivid">
+          <p class="notes-label calculator-label-vivid">VividSeats</p>
           <p class="calculator-desc">A value, × 0.74</p>
           <input type="number" step="any" class="calculator-input" id="calcVividInput" placeholder="Enter a value">
-          <div class="calculator-result" id="calcVividResult">—</div>
+          <div class="calculator-result calculator-result-vivid" id="calcVividResult">—</div>
         </div>
-        <div class="calculator-col">
-          <p class="notes-label">Ticketmaster</p>
+        <div class="calculator-col calculator-col-tm">
+          <p class="notes-label calculator-label-tm">Ticketmaster</p>
           <p class="calculator-desc">Final price, ÷ a number from 1–25</p>
           <input type="number" step="any" class="calculator-input" id="calcTmPriceInput" placeholder="Final price">
-          <div class="calculator-divisor-row">
-            <span>÷</span>
-            <input type="number" min="1" max="25" step="1" class="calculator-input calculator-divisor" id="calcTmDivisorInput" placeholder="1–25" value="1">
-          </div>
-          <div class="calculator-result" id="calcTmResult">—</div>
+          <div class="calculator-divisor-grid" id="calcTmDivisorGrid"></div>
+          <div class="calculator-result calculator-result-tm" id="calcTmResult">—</div>
         </div>
       </div>
+      <div class="calculator-compare" id="calcCompare" style="display:none;"></div>
     </div>
   </div>
 </div>
@@ -1707,19 +1743,26 @@ const historyModal = $('#historyModal');
 const historyBody = $('#historyBody');
 const viewHistoryBtn = $('#viewHistoryBtn');
 const calculatorModal = $('#calculatorModal');
-const openCalculatorBtn = $('#openCalculatorBtn');
+const openCalculatorDirectBtn = $('#openCalculatorDirectBtn');
 const closeCalculatorBtn = $('#closeCalculatorBtn');
 const calcVividInput = $('#calcVividInput');
 const calcVividResult = $('#calcVividResult');
 const calcTmPriceInput = $('#calcTmPriceInput');
-const calcTmDivisorInput = $('#calcTmDivisorInput');
+const calcTmDivisorGrid = $('#calcTmDivisorGrid');
 const calcTmResult = $('#calcTmResult');
+const calcCompare = $('#calcCompare');
 
 // Two independent, live-updating calculators side by side — VividSeats
 // (a value × 0.74) and Ticketmaster (a final price ÷ a chosen number
 // from 1 to 25, e.g. splitting a season/package price across however
-// many individual games or dates it covers). Recomputes on every
-// keystroke rather than needing an explicit "calculate" step.
+// many individual games or dates it covers). The divisor is a full 1–25
+// grid of tap targets rather than a plain number field — picking a
+// number this way is one click instead of typing-then-tabbing-away, and
+// the currently-picked one stays visibly highlighted.
+let calcTmDivisor = 1;
+calcTmDivisorGrid.innerHTML = Array.from({ length: 25 }, (_, i) => i + 1)
+  .map(n => `<button type="button" class="calculator-divisor-btn ${n === calcTmDivisor ? 'active' : ''}" data-divisor="${n}">${n}</button>`)
+  .join('');
 function formatCalcResult(n){
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -1728,27 +1771,76 @@ function updateVividCalc(){
   if(calcVividInput.value.trim() === '' || isNaN(v)){
     calcVividResult.textContent = '—';
     calcVividResult.classList.add('is-empty');
-    return;
+  } else {
+    calcVividResult.classList.remove('is-empty');
+    calcVividResult.textContent = formatCalcResult(v * 0.74);
   }
-  calcVividResult.classList.remove('is-empty');
-  calcVividResult.textContent = formatCalcResult(v * 0.74);
+  updateCalcCompare();
 }
 function updateTmCalc(){
   const price = parseFloat(calcTmPriceInput.value);
-  let divisor = parseFloat(calcTmDivisorInput.value);
-  if(!isNaN(divisor)) divisor = Math.min(25, Math.max(1, Math.round(divisor)));
-  if(calcTmPriceInput.value.trim() === '' || isNaN(price) || isNaN(divisor) || divisor < 1){
+  if(calcTmPriceInput.value.trim() === '' || isNaN(price)){
     calcTmResult.textContent = '—';
     calcTmResult.classList.add('is-empty');
+  } else {
+    calcTmResult.classList.remove('is-empty');
+    calcTmResult.textContent = formatCalcResult(price / calcTmDivisor);
+  }
+  updateCalcCompare();
+}
+// The actual point of running both numbers side by side: is buying at
+// the Ticketmaster cost-per-seat and reselling at the VividSeats net
+// payout actually worth it. Profit per seat is straightforward
+// (VividSeats payout minus what each seat cost on Ticketmaster); total
+// profit multiplies that by the same seat count already picked on the
+// Ticketmaster side, since that's the number of seats this whole
+// comparison is actually about. 30%+ margin is called out in green as
+// the "typically want to see this" bar; a real loss (spending more per
+// seat than you'd net back) is called out in red so it's not mistaken
+// for a small, acceptable margin.
+function updateCalcCompare(){
+  const vividVal = parseFloat(calcVividInput.value);
+  const tmPrice = parseFloat(calcTmPriceInput.value);
+  const vividValid = calcVividInput.value.trim() !== '' && !isNaN(vividVal);
+  const tmValid = calcTmPriceInput.value.trim() !== '' && !isNaN(tmPrice);
+  if(!vividValid || !tmValid){
+    calcCompare.style.display = 'none';
     return;
   }
-  calcTmResult.classList.remove('is-empty');
-  calcTmResult.textContent = formatCalcResult(price / divisor);
+  const vividNet = vividVal * 0.74;
+  const tmPerSeat = tmPrice / calcTmDivisor;
+  const profitPerSeat = vividNet - tmPerSeat;
+  const totalProfit = profitPerSeat * calcTmDivisor;
+  const pct = tmPerSeat !== 0 ? (profitPerSeat / tmPerSeat) * 100 : null;
+  calcCompare.style.display = 'block';
+  calcCompare.classList.remove('is-good', 'is-bad');
+  if(pct !== null && pct >= 30) calcCompare.classList.add('is-good');
+  else if(pct !== null && pct < 0) calcCompare.classList.add('is-bad');
+  const pctText = pct === null ? '—' : (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+  const seatLabel = calcTmDivisor === 1 ? '1 seat' : `${calcTmDivisor} seats`;
+  calcCompare.innerHTML = `
+    <div class="calculator-compare-pct">${escapeHtml(pctText)} <span style="font-size:12px;font-weight:400;color:var(--muted);">vs Ticketmaster cost</span></div>
+    <div class="calculator-compare-rows">
+      <div class="calculator-compare-row">
+        <div class="calculator-compare-row-label">Profit / seat</div>
+        <div class="calculator-compare-row-value">${escapeHtml(formatCalcResult(profitPerSeat))}</div>
+      </div>
+      <div class="calculator-compare-row">
+        <div class="calculator-compare-row-label">Total (${escapeHtml(seatLabel)})</div>
+        <div class="calculator-compare-row-value">${escapeHtml(formatCalcResult(totalProfit))}</div>
+      </div>
+    </div>`;
 }
 calcVividInput.addEventListener('input', updateVividCalc);
 calcTmPriceInput.addEventListener('input', updateTmCalc);
-calcTmDivisorInput.addEventListener('input', updateTmCalc);
-openCalculatorBtn.addEventListener('click', () => {
+calcTmDivisorGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.calculator-divisor-btn');
+  if(!btn) return;
+  calcTmDivisor = parseInt(btn.dataset.divisor, 10);
+  calcTmDivisorGrid.querySelectorAll('.calculator-divisor-btn').forEach(b => b.classList.toggle('active', b === btn));
+  updateTmCalc();
+});
+openCalculatorDirectBtn.addEventListener('click', () => {
   moreMenuPopover.classList.remove('open');
   calculatorModal.style.display = 'flex';
   updateVividCalc();
@@ -1823,7 +1915,7 @@ insightsModal.addEventListener('click', e => { if(e.target === insightsModal) cl
 // in place, rather than closing it — deleting one bad entry usually
 // means checking whether the range/trend now looks right, which is
 // easier to see if the modal doesn't vanish out from under you.
-insightsBody.addEventListener('click', e => {
+insightsBody.addEventListener('click', async e => {
   const toggleBtn = e.target.closest('[data-action="toggle-insights-price-history"]');
   if(toggleBtn){
     if(historyExpandedKeys.has('insights-price-history')) historyExpandedKeys.delete('insights-price-history');
@@ -1832,14 +1924,29 @@ insightsBody.addEventListener('click', e => {
     return;
   }
   const deleteBtn = e.target.closest('[data-action="delete-price-history"]');
-  if(!deleteBtn) return;
-  pushUndo();
-  const key = deleteBtn.dataset.key;
-  const index = parseInt(deleteBtn.dataset.index, 10);
-  const ann = getAnnotation(key);
-  if(ann.priceHistory && !isNaN(index)) ann.priceHistory.splice(index, 1);
-  saveNotesSoon();
-  if(currentInsightsAnchorKey) openInsightsModal(currentInsightsAnchorKey);
+  if(deleteBtn){
+    pushUndo();
+    const key = deleteBtn.dataset.key;
+    const index = parseInt(deleteBtn.dataset.index, 10);
+    const ann = getAnnotation(key);
+    if(ann.priceHistory && !isNaN(index)) ann.priceHistory.splice(index, 1);
+    saveNotesSoon();
+    if(currentInsightsAnchorKey) openInsightsModal(currentInsightsAnchorKey);
+    return;
+  }
+  const deleteHistBtn = e.target.closest('[data-action="delete-historical-price-history"]');
+  if(deleteHistBtn){
+    const key = deleteHistBtn.dataset.key;
+    const index = parseInt(deleteHistBtn.dataset.index, 10);
+    if(isNaN(index)) return;
+    // Disabled while the push is in flight — this one's a real network
+    // round trip (editing a different sheet than whatever's open), not
+    // an instant local edit like the live-show version above, so a
+    // second click before the first finishes could race against itself.
+    deleteHistBtn.disabled = true;
+    await deleteHistoricalPriceHistoryEntry(key, index);
+    if(currentInsightsAnchorKey) openInsightsModal(currentInsightsAnchorKey);
+  }
 });
 
 // History is read on demand from remoteCache, not kept in memory
@@ -3312,6 +3419,22 @@ async function archiveSheetSnapshot(sourceSheetName, snapshotEvents){
   const hist = ensureHistorySheetExists();
   const existing = remoteCache.filter(r => r.appSheet === hist.name);
   await pushSheetEvents(hist.name, 'history', [...existing, ...snapshotEvents]);
+}
+
+// A price-history entry on an already-released/cleared show lives in
+// the History sheet, not in the normal annotations map — deleting it
+// means finding that exact event in the History sheet's own data,
+// editing its priceHistory in place, and pushing the WHOLE History
+// sheet back (same replace-the-tab mechanism every other edit uses,
+// just targeted at History instead of whatever's currently open).
+async function deleteHistoricalPriceHistoryEntry(key, index){
+  const hist = sheets.find(s => s.mode === 'history');
+  if(!hist) return;
+  const histEvents = remoteCache.filter(r => r.appSheet === hist.name);
+  const target = histEvents.find(ev => eventKey(ev) === key);
+  if(!target || !Array.isArray(target.priceHistory)) return;
+  target.priceHistory.splice(index, 1);
+  await pushSheetEvents(hist.name, 'history', histEvents);
 }
 
 async function saveEventsToActiveSheet(events){
@@ -5192,13 +5315,13 @@ function insightsBodyHtml(insights){
     <button type="button" class="history-toggle" data-action="toggle-insights-price-history">${rawHistoryExpanded ? '▾' : '▸'} Full price history (${rawHistoryEntries.length})</button>
     ${rawHistoryExpanded ? `<div class="insights-rawhistory-list">${rawHistoryEntries.map(h => {
       const whenStr = h.when ? new Date(h.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + new Date(h.when).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-      // Deleting only applies to live shows — a historical entry lives
-      // in the History sheet's own data, not the normal annotations map
-      // getAnnotation() reads/writes, so there's no safe way to mutate
-      // it from here yet. Marked read-only rather than silently doing
-      // nothing if clicked.
+      // Historical entries (from a released/cleared show) get deleted
+      // through a different action than live ones — the underlying data
+      // lives in the History sheet, not in the normal annotations map,
+      // so it needs its own handler that goes and edits that sheet
+      // specifically (see deleteHistoricalPriceHistoryEntry).
       const deleteBtn = h.isHistorical
-        ? `<span class="insights-rawhistory-readonly" title="Read-only — this entry belongs to a released/cleared show">🔒</span>`
+        ? `<button type="button" class="history-delete-btn" data-action="delete-historical-price-history" data-key="${escapeHtml(h.key)}" data-index="${h.index}" title="Remove this entry from History permanently">×</button>`
         : `<button type="button" class="history-delete-btn" data-action="delete-price-history" data-key="${escapeHtml(h.key)}" data-index="${h.index}" title="Remove this entry — use this if it was logged by mistake">×</button>`;
       return `<div class="insights-rawhistory-row">
         <span class="insights-rawhistory-label">${escapeHtml(h.label)}</span>
