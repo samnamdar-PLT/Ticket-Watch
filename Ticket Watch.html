@@ -1085,8 +1085,8 @@
 
   /* ---------- Insights modal ---------- */
   .insights-modal{max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
-  .calculator-modal{max-width:580px;}
-  .calculator-columns{display:flex;gap:16px;}
+  .calculator-modal{max-width:560px;}
+  .calculator-columns{display:flex;gap:12px;}
   .calculator-col{
     flex:1 1 0;min-width:0;
     border-radius:10px;padding:12px;
@@ -1104,9 +1104,17 @@
     padding:9px 10px;outline:none;
   }
   .calculator-input:focus{border-color:var(--teal);}
+  /* Split point: divisor picker below both inputs (not nested inside
+     just the Ticketmaster column) is what actually fixed the lopsided
+     feel — squeezing a 5×5 grid into one narrow half of a side-by-side
+     layout was what made the two sides look so mismatched, with a big
+     dead gap on the VividSeats side and a cramped grid on the other.
+     Full width here means every number gets a comfortable tap target,
+     and both result boxes below end up the same height as each other
+     since neither one has anything else stacked inside it anymore. */
+  .calculator-divisor-caption{font-size:11.5px;color:var(--muted);margin:14px 0 8px;text-align:center;}
   .calculator-divisor-grid{
-    display:grid;grid-template-columns:repeat(5, 1fr);gap:5px;
-    margin-top:10px;
+    display:grid;grid-template-columns:repeat(5, 1fr);gap:6px;
   }
   .calculator-divisor-btn{
     font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
@@ -1117,10 +1125,12 @@
   .calculator-divisor-btn:hover{border-color:var(--tm-blue);color:var(--text);}
   .calculator-divisor-btn:active{transform:scale(.94);}
   .calculator-divisor-btn.active{background:var(--tm-blue);border-color:var(--tm-blue);color:#fff;}
+  .calculator-results-row{margin-top:16px;}
   .calculator-result{
-    margin-top:12px;padding:12px 10px;border-radius:8px;
+    flex:1 1 0;min-width:0;
+    padding:14px 10px;border-radius:8px;
     background:rgba(255,255,255,.04);border:1px solid var(--hairline);
-    font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;
+    font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;
     color:var(--text);text-align:center;
   }
   .calculator-result.is-empty{color:var(--muted);font-size:14px;font-weight:400;}
@@ -1149,6 +1159,7 @@
     padding:18px 20px 14px;border-bottom:1px solid var(--hairline);flex:0 0 auto;
   }
   .insights-modal-header .modal-title{margin:0;}
+  .calculator-header-actions{display:flex;align-items:center;gap:10px;}
   .insights-close-btn{
     width:28px;height:28px;border-radius:6px;border:none;background:transparent;
     color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
@@ -1644,7 +1655,10 @@
   <div class="modal-box insights-modal calculator-modal">
     <div class="insights-modal-header">
       <h3 class="modal-title">🧮 Calculator</h3>
-      <button type="button" class="insights-close-btn" id="closeCalculatorBtn" aria-label="Close">×</button>
+      <div class="calculator-header-actions">
+        <button type="button" class="reset-sections-btn" id="calcResetBtn" title="Clear both fields and start over">↺ Reset</button>
+        <button type="button" class="insights-close-btn" id="closeCalculatorBtn" aria-label="Close">×</button>
+      </div>
     </div>
     <div class="insights-modal-body">
       <div class="calculator-columns">
@@ -1652,15 +1666,18 @@
           <p class="notes-label calculator-label-vivid">VividSeats</p>
           <p class="calculator-desc">A value, × 0.74</p>
           <input type="number" step="any" class="calculator-input" id="calcVividInput" placeholder="Enter a value">
-          <div class="calculator-result calculator-result-vivid" id="calcVividResult">—</div>
         </div>
         <div class="calculator-col calculator-col-tm">
           <p class="notes-label calculator-label-tm">Ticketmaster</p>
-          <p class="calculator-desc">Final price, ÷ a number from 1–25</p>
+          <p class="calculator-desc">Final price, ÷ a number below</p>
           <input type="number" step="any" class="calculator-input" id="calcTmPriceInput" placeholder="Final price">
-          <div class="calculator-divisor-grid" id="calcTmDivisorGrid"></div>
-          <div class="calculator-result calculator-result-tm" id="calcTmResult">—</div>
         </div>
+      </div>
+      <p class="calculator-divisor-caption">Split Ticketmaster price across how many seats</p>
+      <div class="calculator-divisor-grid" id="calcTmDivisorGrid"></div>
+      <div class="calculator-columns calculator-results-row">
+        <div class="calculator-result calculator-result-vivid" id="calcVividResult">—</div>
+        <div class="calculator-result calculator-result-tm" id="calcTmResult">—</div>
       </div>
       <div class="calculator-compare" id="calcCompare" style="display:none;"></div>
     </div>
@@ -1744,6 +1761,7 @@ const historyBody = $('#historyBody');
 const viewHistoryBtn = $('#viewHistoryBtn');
 const calculatorModal = $('#calculatorModal');
 const openCalculatorDirectBtn = $('#openCalculatorDirectBtn');
+const calcResetBtn = $('#calcResetBtn');
 const closeCalculatorBtn = $('#closeCalculatorBtn');
 const calcVividInput = $('#calcVividInput');
 const calcVividResult = $('#calcVividResult');
@@ -1843,6 +1861,15 @@ calcTmDivisorGrid.addEventListener('click', e => {
 openCalculatorDirectBtn.addEventListener('click', () => {
   moreMenuPopover.classList.remove('open');
   calculatorModal.style.display = 'flex';
+  updateVividCalc();
+  updateTmCalc();
+  calcVividInput.focus();
+});
+calcResetBtn.addEventListener('click', () => {
+  calcVividInput.value = '';
+  calcTmPriceInput.value = '';
+  calcTmDivisor = 1;
+  calcTmDivisorGrid.querySelectorAll('.calculator-divisor-btn').forEach(b => b.classList.toggle('active', b.dataset.divisor === '1'));
   updateVividCalc();
   updateTmCalc();
   calcVividInput.focus();
