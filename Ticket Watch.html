@@ -1085,6 +1085,27 @@
 
   /* ---------- Insights modal ---------- */
   .insights-modal{max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
+  .calculator-modal{max-width:480px;}
+  .calculator-columns{display:flex;gap:16px;}
+  .calculator-col{flex:1 1 0;min-width:0;}
+  .calculator-desc{font-size:11.5px;color:var(--muted);margin:0 0 10px;}
+  .calculator-input{
+    width:100%;box-sizing:border-box;
+    background:var(--bg);border:1px solid var(--hairline);border-radius:7px;
+    color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:14px;
+    padding:9px 10px;outline:none;
+  }
+  .calculator-input:focus{border-color:var(--teal);}
+  .calculator-divisor-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .calculator-divisor-row span{color:var(--muted);font-size:13px;}
+  .calculator-divisor{flex:1 1 auto;}
+  .calculator-result{
+    margin-top:12px;padding:12px 10px;border-radius:8px;
+    background:rgba(79,200,191,.08);border:1px solid rgba(79,200,191,.25);
+    font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;
+    color:var(--teal);text-align:center;
+  }
+  .calculator-result.is-empty{color:var(--muted);font-size:14px;font-weight:400;background:transparent;border-color:var(--hairline);}
   .insights-modal-header{
     display:flex;align-items:center;justify-content:space-between;
     padding:18px 20px 14px;border-bottom:1px solid var(--hairline);flex:0 0 auto;
@@ -1498,6 +1519,7 @@
           <button class="menu-row-btn" id="clearPastBtn" title="Remove events dated before today">🗑 Clear past</button>
           <button class="menu-row-btn" id="clearBtn" style="display:none;">🗑 Clear data</button>
           <button class="menu-row-btn" id="viewHistoryBtn" title="Browse snapshots saved from past Clear-data actions — kept out of daily use, only shown when you open it">📜 View history</button>
+          <button class="menu-row-btn" id="openCalculatorBtn" title="Quick VividSeats/Ticketmaster price calculator">🧮 Calculator</button>
           <div class="menu-row-divider"></div>
           <p class="notes-label">Keyboard shortcuts</p>
           <div class="shortcuts-list">
@@ -1580,6 +1602,35 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="calculatorModal" style="display:none;">
+  <div class="modal-box insights-modal calculator-modal">
+    <div class="insights-modal-header">
+      <h3 class="modal-title">🧮 Calculator</h3>
+      <button type="button" class="insights-close-btn" id="closeCalculatorBtn" aria-label="Close">×</button>
+    </div>
+    <div class="insights-modal-body">
+      <div class="calculator-columns">
+        <div class="calculator-col">
+          <p class="notes-label">VividSeats</p>
+          <p class="calculator-desc">A value, × 0.74</p>
+          <input type="number" step="any" class="calculator-input" id="calcVividInput" placeholder="Enter a value">
+          <div class="calculator-result" id="calcVividResult">—</div>
+        </div>
+        <div class="calculator-col">
+          <p class="notes-label">Ticketmaster</p>
+          <p class="calculator-desc">Final price, ÷ a number from 1–25</p>
+          <input type="number" step="any" class="calculator-input" id="calcTmPriceInput" placeholder="Final price">
+          <div class="calculator-divisor-row">
+            <span>÷</span>
+            <input type="number" min="1" max="25" step="1" class="calculator-input calculator-divisor" id="calcTmDivisorInput" placeholder="1–25" value="1">
+          </div>
+          <div class="calculator-result" id="calcTmResult">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="insightsModal" style="display:none;">
   <div class="modal-box insights-modal">
     <div class="insights-modal-header">
@@ -1655,6 +1706,59 @@ const closeInsightsBtn = $('#closeInsightsBtn');
 const historyModal = $('#historyModal');
 const historyBody = $('#historyBody');
 const viewHistoryBtn = $('#viewHistoryBtn');
+const calculatorModal = $('#calculatorModal');
+const openCalculatorBtn = $('#openCalculatorBtn');
+const closeCalculatorBtn = $('#closeCalculatorBtn');
+const calcVividInput = $('#calcVividInput');
+const calcVividResult = $('#calcVividResult');
+const calcTmPriceInput = $('#calcTmPriceInput');
+const calcTmDivisorInput = $('#calcTmDivisorInput');
+const calcTmResult = $('#calcTmResult');
+
+// Two independent, live-updating calculators side by side — VividSeats
+// (a value × 0.74) and Ticketmaster (a final price ÷ a chosen number
+// from 1 to 25, e.g. splitting a season/package price across however
+// many individual games or dates it covers). Recomputes on every
+// keystroke rather than needing an explicit "calculate" step.
+function formatCalcResult(n){
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function updateVividCalc(){
+  const v = parseFloat(calcVividInput.value);
+  if(calcVividInput.value.trim() === '' || isNaN(v)){
+    calcVividResult.textContent = '—';
+    calcVividResult.classList.add('is-empty');
+    return;
+  }
+  calcVividResult.classList.remove('is-empty');
+  calcVividResult.textContent = formatCalcResult(v * 0.74);
+}
+function updateTmCalc(){
+  const price = parseFloat(calcTmPriceInput.value);
+  let divisor = parseFloat(calcTmDivisorInput.value);
+  if(!isNaN(divisor)) divisor = Math.min(25, Math.max(1, Math.round(divisor)));
+  if(calcTmPriceInput.value.trim() === '' || isNaN(price) || isNaN(divisor) || divisor < 1){
+    calcTmResult.textContent = '—';
+    calcTmResult.classList.add('is-empty');
+    return;
+  }
+  calcTmResult.classList.remove('is-empty');
+  calcTmResult.textContent = formatCalcResult(price / divisor);
+}
+calcVividInput.addEventListener('input', updateVividCalc);
+calcTmPriceInput.addEventListener('input', updateTmCalc);
+calcTmDivisorInput.addEventListener('input', updateTmCalc);
+openCalculatorBtn.addEventListener('click', () => {
+  moreMenuPopover.classList.remove('open');
+  calculatorModal.style.display = 'flex';
+  updateVividCalc();
+  updateTmCalc();
+  calcVividInput.focus();
+});
+function closeCalculatorModal(){ calculatorModal.style.display = 'none'; }
+closeCalculatorBtn.addEventListener('click', closeCalculatorModal);
+calculatorModal.addEventListener('click', e => { if(e.target === calculatorModal) closeCalculatorModal(); });
+
 const closeHistoryBtn = $('#closeHistoryBtn');
 const clearPastBtn = $('#clearPastBtn');
 
@@ -3543,6 +3647,7 @@ document.addEventListener('keydown', e => {
     moreMenuPopover.classList.remove('open');
     if(addSheetModal.style.display !== 'none') closeAddSheetModal();
     if(insightsModal.style.display !== 'none') closeInsightsModal();
+    if(calculatorModal.style.display !== 'none') closeCalculatorModal();
     return;
   }
 
