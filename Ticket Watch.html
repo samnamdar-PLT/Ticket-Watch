@@ -727,12 +727,26 @@
   }
   .note-preview-icon{flex:0 0 auto;opacity:.6;font-size:11px;margin-top:1px;}
   .notes-panel{
+    position:relative;
     border:1px solid var(--teal);
-    padding:14px 16px 14px;
+    padding:40px 16px 14px;
     background:var(--card);
     box-shadow:0 12px 28px rgba(0,0,0,.4);
     animation:panelAppear .16s ease-out;
   }
+  /* A guaranteed-safe way to close the panel — clicking outside it also
+     works, but that click can land on another card's link, pin, or
+     archive button and trigger THAT instead of just closing this. This
+     button only ever does one thing, no matter where else on the page
+     it happens to sit relative to other cards. */
+  .notes-panel-close-btn{
+    position:absolute;top:10px;right:10px;z-index:2;
+    width:26px;height:26px;border-radius:6px;border:1px solid transparent;
+    background:transparent;color:var(--muted);font-size:18px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+  }
+  .notes-panel-close-btn:hover{background:var(--card-hover);border-color:var(--hairline);color:var(--text);}
   @keyframes panelAppear{
     from{opacity:0;transform:translateY(-4px);}
     to{opacity:1;transform:translateY(0);}
@@ -1070,7 +1084,7 @@
   .passcode-error{color:var(--coral);font-size:12px;margin:-10px 0 14px;}
 
   /* ---------- Insights modal ---------- */
-  .insights-modal{max-width:560px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
+  .insights-modal{max-width:600px;max-height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden;}
   .insights-modal-header{
     display:flex;align-items:center;justify-content:space-between;
     padding:18px 20px 14px;border-bottom:1px solid var(--hairline);flex:0 0 auto;
@@ -1082,6 +1096,13 @@
   }
   .insights-close-btn:hover{background:var(--card-hover);color:var(--text);}
   .insights-modal-body{padding:16px 20px 20px;overflow-y:auto;flex:1 1 auto;}
+  /* Clear vertical rhythm between sections (Shows, Price patterns,
+     Notes timeline, etc.) — everything used to butt directly up against
+     the section before it with almost no separation, which was a big
+     part of what made the whole dialog read as one dense wall instead
+     of a few distinct, scannable groups. */
+  .insights-modal-body .notes-label{margin-top:20px;padding-top:14px;border-top:1px solid var(--hairline);}
+  .insights-modal-body .notes-label:first-child{margin-top:0;padding-top:0;border-top:none;}
   .insights-summary{display:flex;flex-direction:column;gap:8px;margin-bottom:6px;}
   .insights-stat{font-size:13px;color:var(--text);}
   .insights-stat b{color:var(--amber);}
@@ -1114,11 +1135,6 @@
   .insights-code-row.is-historical .insights-code-value{color:var(--muted);}
   .insights-code-show{font-size:11px;color:var(--muted);flex:0 0 auto;text-align:right;}
   .insights-rawhistory-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;}
-  .insights-rawhistory-row{
-    display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;
-    padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.02);
-    font-size:11.5px;
-  }
   .insights-rawhistory-label{color:var(--text);font-weight:600;flex:0 0 auto;}
   .insights-rawhistory-price{font-family:'IBM Plex Mono',monospace;color:var(--muted);flex:0 0 auto;}
   .insights-rawhistory-meta{color:var(--muted);opacity:.7;font-size:10.5px;flex:1 1 auto;text-align:right;}
@@ -1131,9 +1147,10 @@
   .insights-timeline-when{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);}
   .insights-timeline-show{font-size:10.5px;color:var(--muted);opacity:.8;}
   .insights-timeline-text{font-size:12.5px;color:var(--text);white-space:pre-wrap;line-height:1.4;}
-  .insights-price-list{display:flex;flex-direction:column;gap:4px;}
+  .insights-price-list{display:flex;flex-direction:column;gap:6px;}
   .insights-price-row{
-    display:flex;align-items:center;gap:8px;padding:5px 8px;
+    display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;
+    padding:8px 10px;
     border-radius:6px;background:rgba(255,255,255,.02);font-size:12.5px;
   }
   .insights-price-label{flex:1 1 auto;color:var(--text);font-weight:600;}
@@ -1147,6 +1164,19 @@
   .insights-price-trend.trend-up{color:var(--coral);background:rgba(255,107,106,.12);}
   .insights-price-trend.trend-down{color:#6fcf7f;background:rgba(111,207,127,.12);}
   .insights-empty{color:var(--muted);font-size:12.5px;font-style:italic;margin:2px 0;}
+  .insights-rawhistory-row{
+    display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;
+    padding:7px 8px;border-radius:6px;background:rgba(255,255,255,.02);
+    font-size:11.5px;
+  }
+  .history-delete-btn{
+    flex:0 0 auto;width:20px;height:20px;border-radius:5px;border:1px solid transparent;
+    background:transparent;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+  }
+  .history-delete-btn:hover{background:rgba(255,107,106,.12);border-color:var(--coral);color:var(--coral);}
+  .insights-rawhistory-readonly{flex:0 0 auto;font-size:11px;opacity:.5;}
 
   /* ---------- History modal ---------- */
   .history-batch{border:1px solid var(--hairline);border-radius:8px;margin-bottom:8px;overflow:hidden;}
@@ -1666,18 +1696,47 @@ cancelDeletePasscodeBtn.addEventListener('click', () => closeDeletePasscodeModal
 deletePasscodeModal.addEventListener('click', e => { if(e.target === deletePasscodeModal) closeDeletePasscodeModal(false); });
 deletePasscodeInput.addEventListener('keydown', e => { if(e.key === 'Enter') submitDeletePasscode(); });
 
+let currentInsightsAnchorKey = null;
 function openInsightsModal(key){
   const insights = buildArtistInsights(key);
   if(!insights) return;
+  currentInsightsAnchorKey = key;
   insightsTitle.textContent = insights.name;
   insightsBody.innerHTML = insightsBodyHtml(insights);
   insightsModal.style.display = 'flex';
 }
 function closeInsightsModal(){
   insightsModal.style.display = 'none';
+  currentInsightsAnchorKey = null;
 }
 closeInsightsBtn.addEventListener('click', closeInsightsModal);
 insightsModal.addEventListener('click', e => { if(e.target === insightsModal) closeInsightsModal(); });
+
+// The modal's own delete buttons (in its raw price-history list) need
+// their own listener — insightsModal is a separate overlay outside
+// #listRoot, so listRoot's click delegation never sees clicks inside it.
+// Re-opens on the same anchor afterward to rebuild the modal's content
+// in place, rather than closing it — deleting one bad entry usually
+// means checking whether the range/trend now looks right, which is
+// easier to see if the modal doesn't vanish out from under you.
+insightsBody.addEventListener('click', e => {
+  const toggleBtn = e.target.closest('[data-action="toggle-insights-price-history"]');
+  if(toggleBtn){
+    if(historyExpandedKeys.has('insights-price-history')) historyExpandedKeys.delete('insights-price-history');
+    else historyExpandedKeys.add('insights-price-history');
+    if(currentInsightsAnchorKey) openInsightsModal(currentInsightsAnchorKey);
+    return;
+  }
+  const deleteBtn = e.target.closest('[data-action="delete-price-history"]');
+  if(!deleteBtn) return;
+  pushUndo();
+  const key = deleteBtn.dataset.key;
+  const index = parseInt(deleteBtn.dataset.index, 10);
+  const ann = getAnnotation(key);
+  if(ann.priceHistory && !isNaN(index)) ann.priceHistory.splice(index, 1);
+  saveNotesSoon();
+  if(currentInsightsAnchorKey) openInsightsModal(currentInsightsAnchorKey);
+});
 
 // History is read on demand from remoteCache, not kept in memory
 // separately — remoteCache already holds every sheet's data (that's how
@@ -5003,10 +5062,10 @@ function insightsBodyHtml(insights){
   // data itself, so there's always a completely unprocessed place to
   // check that a given price change actually got recorded.
   const rawHistoryEntries = [];
-  shows.forEach(({ ev, ann, isHistorical }) => {
-    (ann.priceHistory || []).forEach(h => {
+  shows.forEach(({ ev, key, ann, isHistorical }) => {
+    (ann.priceHistory || []).forEach((h, idx) => {
       if((h.label && h.label.trim()) || (h.price && h.price.trim())){
-        rawHistoryEntries.push({ label: h.label || '(unlabeled)', price: h.price || '—', when: h.removedAt, showLabel: showLabel(ev), isHistorical });
+        rawHistoryEntries.push({ label: h.label || '(unlabeled)', price: h.price || '—', when: h.removedAt, showLabel: showLabel(ev), isHistorical, key, index: idx });
       }
     });
   });
@@ -5016,14 +5075,34 @@ function insightsBodyHtml(insights){
     if(b.when) return 1;
     return 0;
   });
-  const rawHistoryHtml = rawHistoryEntries.length ? rawHistoryEntries.map(h => {
-    const whenStr = h.when ? new Date(h.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + new Date(h.when).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-    return `<div class="insights-rawhistory-row">
-      <span class="insights-rawhistory-label">${escapeHtml(h.label)}</span>
-      <span class="insights-rawhistory-price">was $${escapeHtml(h.price)}</span>
-      <span class="insights-rawhistory-meta">${escapeHtml(whenStr)} · ${escapeHtml(h.showLabel)}${h.isHistorical ? ' · 📜 past' : ''}</span>
-    </div>`;
-  }).join('') : '';
+  // Collapsed by default — this list can get long fast (every edit ever
+  // made, across every show), and having it always fully expanded was
+  // exactly what made the whole dialog feel cluttered and hard to scan.
+  // The trend/range in Price Patterns above already gives the
+  // at-a-glance read; this raw list is for when you specifically want
+  // to dig into or correct individual entries, not something that needs
+  // to be visible every time the dialog opens.
+  const rawHistoryExpanded = historyExpandedKeys.has('insights-price-history');
+  const rawHistoryHtml = rawHistoryEntries.length ? `
+    <button type="button" class="history-toggle" data-action="toggle-insights-price-history">${rawHistoryExpanded ? '▾' : '▸'} Full price history (${rawHistoryEntries.length})</button>
+    ${rawHistoryExpanded ? `<div class="insights-rawhistory-list">${rawHistoryEntries.map(h => {
+      const whenStr = h.when ? new Date(h.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + new Date(h.when).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+      // Deleting only applies to live shows — a historical entry lives
+      // in the History sheet's own data, not the normal annotations map
+      // getAnnotation() reads/writes, so there's no safe way to mutate
+      // it from here yet. Marked read-only rather than silently doing
+      // nothing if clicked.
+      const deleteBtn = h.isHistorical
+        ? `<span class="insights-rawhistory-readonly" title="Read-only — this entry belongs to a released/cleared show">🔒</span>`
+        : `<button type="button" class="history-delete-btn" data-action="delete-price-history" data-key="${escapeHtml(h.key)}" data-index="${h.index}" title="Remove this entry — use this if it was logged by mistake">×</button>`;
+      return `<div class="insights-rawhistory-row">
+        <span class="insights-rawhistory-label">${escapeHtml(h.label)}</span>
+        <span class="insights-rawhistory-price">was $${escapeHtml(h.price)}</span>
+        <span class="insights-rawhistory-meta">${escapeHtml(whenStr)} · ${escapeHtml(h.showLabel)}${h.isHistorical ? ' · 📜 past' : ''}</span>
+        ${deleteBtn}
+      </div>`;
+    }).join('')}</div>` : ''}
+  ` : '';
 
   const timelineHtml = timeline.length ? timeline.map(t => {
     const when = t.current ? 'Current' : (t.when ? new Date(t.when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -5047,7 +5126,22 @@ function insightsBodyHtml(insights){
     if(s.trend){
       const arrow = s.trend.up ? '▲' : '▼';
       const cls = s.trend.up ? 'trend-up' : 'trend-down';
-      const pct = s.trend.pct !== null ? ` (${s.trend.pct >= 1000 ? Math.round(s.trend.pct).toLocaleString() : s.trend.pct.toFixed(0)}%)` : '';
+      // A raw percentage reads fine for a normal price move but turns
+      // into an alarming, borderline-unreadable number the moment one
+      // entry is a stray typo (an extra zero turns a $78 seat into a
+      // "128,000%" jump) — switching to a plain multiplier ("×N") past
+      // a reasonable threshold keeps it legible either way, and is
+      // arguably the more honest read for a change that big regardless
+      // of the cause.
+      let pct = '';
+      if(s.trend.pct !== null){
+        if(s.trend.pct >= 300 && s.trend.first > 0){
+          const multiplier = s.trend.last / s.trend.first;
+          pct = ` (${multiplier >= 100 ? Math.round(multiplier).toLocaleString() : multiplier.toFixed(1)}×)`;
+        } else {
+          pct = ` (${s.trend.pct.toFixed(0)}%)`;
+        }
+      }
       trendHtml = `<span class="insights-price-trend ${cls}" title="From $${s.trend.first.toLocaleString()} at the earliest tracked show to $${s.trend.last.toLocaleString()} at the most recent">${arrow}${escapeHtml(pct)}</span>`;
     }
     return `<div class="insights-price-row">
@@ -5066,7 +5160,7 @@ function insightsBodyHtml(insights){
     ${codesHtml ? `<p class="notes-label">Codes</p><div class="insights-code-list">${codesHtml}</div>` : ''}
     <p class="notes-label">Price patterns</p>
     <div class="insights-price-list">${priceHtml}</div>
-    ${rawHistoryHtml ? `<p class="notes-label">Price history (${rawHistoryEntries.length})</p><div class="insights-rawhistory-list">${rawHistoryHtml}</div>` : ''}
+    ${rawHistoryHtml}
     <p class="notes-label">Notes timeline</p>
     <div class="insights-timeline-list">${timelineHtml}</div>
   `;
@@ -5142,12 +5236,23 @@ function priceHistoryHtml(key, ann){
   const expanded = historyExpandedKeys.has(historyKey);
   let list = '';
   if(expanded){
-    list = [...ann.priceHistory].reverse().map(h => {
+    const reversed = [...ann.priceHistory].reverse();
+    list = reversed.map((h, revIdx) => {
+      // ann.priceHistory is shown newest-first (reversed), but deletion
+      // needs the entry's REAL position in the underlying array, not its
+      // position in this reversed display list — otherwise the "×"
+      // would remove whichever entry happens to sit at that same
+      // reversed slot, not the one actually shown.
+      const originalIndex = ann.priceHistory.length - 1 - revIdx;
       const d = new Date(h.removedAt);
       const when = isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
       const label = (h.label || '').trim() || '(unlabeled)';
       const priceText = (h.price || '').trim() ? formatPriceDisplay(h.price) : '(no price)';
-      return `<div class="history-entry"><div class="history-date">${escapeHtml(when)}</div><div class="history-text">${escapeHtml(label)} — ${escapeHtml(priceText)}</div></div>`;
+      return `<div class="history-entry">
+        <div class="history-date">${escapeHtml(when)}</div>
+        <div class="history-text">${escapeHtml(label)} — ${escapeHtml(priceText)}</div>
+        <button type="button" class="history-delete-btn" data-action="delete-price-history" data-key="${escapeHtml(key)}" data-index="${originalIndex}" title="Remove this entry — use this if it was logged by mistake">×</button>
+      </div>`;
     }).join('');
   }
   return `
@@ -5222,6 +5327,7 @@ function notesPanelHtml(key, ann, ev, showPresaleFields = false){
     </div>` : '';
   return `
     <div class="notes-panel" data-panel-key="${escapeHtml(key)}">
+      <button type="button" class="notes-panel-close-btn" data-action="close-notes-panel" data-key="${escapeHtml(key)}" title="Close — safe to click, nothing else on the card is triggered">×</button>
       ${presaleFieldsHtml}
       <div class="panel-section">
         <div class="notes-label-row">
@@ -5424,23 +5530,6 @@ function openNextInBulkQueue(){
   bulkOpenQueue.index++;
   renderBulkOpenToast();
 }
-// The opt-in gamble: fires every remaining URL in one burst using the
-// same real-anchor-plus-modifier-click approach above (rather than raw
-// window.open() calls in a loop, which is what "opening all at once"
-// used before and is exactly the pattern popup blockers are built to
-// catch). Dispatching genuine modifier-clicks on real links is treated
-// much more like normal browsing by a popup blocker than a burst of
-// script-driven window.open() calls — it's still not a hard guarantee
-// across every browser and setting, but it's a meaningfully different
-// and stronger approach than what was here before, not just a relabel
-// of the same thing.
-function tryOpenAllRemainingInQueue(){
-  if(!bulkOpenQueue) return;
-  const remaining = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
-  remaining.forEach(url => openUrlInBackground(url));
-  bulkOpenQueue.index = bulkOpenQueue.urls.length;
-  renderBulkOpenToast();
-}
 function renderBulkOpenToast(){
   if(!bulkOpenQueue || bulkOpenQueue.index >= bulkOpenQueue.urls.length){
     bulkOpenToast.style.display = 'none';
@@ -5453,10 +5542,45 @@ function renderBulkOpenToast(){
   bulkOpenToast.innerHTML = `
     <span class="bulk-open-toast-text">Opened ${index} of ${urls.length} ${escapeHtml(label)} links</span>
     <button type="button" class="bulk-open-toast-btn primary" data-action="bulk-open-next">Open next (${remaining} left)</button>
-    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-try-all" title="Not guaranteed — depends entirely on what your browser allows">Try opening all at once</button>
+    <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-download-bookmarks" title="Downloads a bookmarks file — import it into your browser, then right-click the folder and choose Open All. This actually opens everything at once, since it uses your browser's own bookmark feature instead of fighting its popup blocker.">⬇ Download as bookmarks</button>
     <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-copy-next">Copy next link</button>
     <button type="button" class="bulk-open-toast-btn" data-action="bulk-open-dismiss">Done</button>
   `;
+}
+
+// This is the one approach that actually gets around the popup blocker
+// entirely, instead of trying to slip past it: a bookmarks file isn't a
+// script asking to open tabs, it's a browser IMPORT — and "open every
+// bookmark in a folder as tabs" is a native, unrestricted feature every
+// major browser already has, with no popup-count limit at all, because
+// it's not something a webpage's script is initiating. Generates a
+// standard Netscape Bookmark File (the same format every browser uses
+// for bookmark export/import) with every remaining link in its own
+// folder, ready to import.
+function downloadBulkOpenAsBookmarks(){
+  if(!bulkOpenQueue) return;
+  const remaining = bulkOpenQueue.urls.slice(bulkOpenQueue.index);
+  if(!remaining.length) return;
+  const folderName = `${bulkOpenQueue.label} links — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const links = remaining.map((url, i) => `        <DT><A HREF="${escapeHtml(url)}">${escapeHtml(bulkOpenQueue.label)} ${bulkOpenQueue.index + i + 1}</A>`).join('\n');
+  const html = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+    <DT><H3>${escapeHtml(folderName)}</H3>
+    <DL><p>
+${links}
+    </DL><p>
+</DL><p>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${bulkOpenQueue.label.replace(/[^a-z0-9]+/gi, '-')}-links.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 0);
 }
 
 // The toast is a fixed-position overlay OUTSIDE #listRoot, so its
@@ -5467,8 +5591,8 @@ bulkOpenToast.addEventListener('click', e => {
     openNextInBulkQueue();
     return;
   }
-  if(e.target.closest('[data-action="bulk-open-try-all"]')){
-    tryOpenAllRemainingInQueue();
+  if(e.target.closest('[data-action="bulk-open-download-bookmarks"]')){
+    downloadBulkOpenAsBookmarks();
     return;
   }
   // Copies just the NEXT link and advances the queue by one, same
@@ -6114,6 +6238,23 @@ listRoot.addEventListener('click', async e => {
     return;
   }
 
+  // Removes one price-history entry — for when a typo or a wrong tap
+  // got logged (an extra zero, a stray digit) and is now permanently
+  // skewing the average/trend for that section. No confirm dialog: it's
+  // one line of history, not the show itself, and undo already covers
+  // it like any other edit.
+  const deletePriceHistoryBtn = e.target.closest('[data-action="delete-price-history"]');
+  if(deletePriceHistoryBtn){
+    pushUndo();
+    const key = deletePriceHistoryBtn.dataset.key;
+    const index = parseInt(deletePriceHistoryBtn.dataset.index, 10);
+    const ann = getAnnotation(key);
+    if(ann.priceHistory && !isNaN(index)) ann.priceHistory.splice(index, 1);
+    saveNotesSoon();
+    render();
+    return;
+  }
+
   // Expand/collapse the note-history timeline inside the open panel.
   const historyToggle = e.target.closest('[data-action="toggle-history"]');
   if(historyToggle){
@@ -6185,6 +6326,17 @@ listRoot.addEventListener('click', async e => {
       const ta = listRoot.querySelector(`[data-key="${CSS.escape(key)}"] .notes-textarea`);
       if(ta) ta.focus();
     }
+    return;
+  }
+
+  // A dedicated close button right on the panel — guaranteed to only
+  // ever close the panel, never anything else, unlike clicking outside
+  // it (which can land on a different card's link, pin, or archive
+  // button and trigger that instead).
+  const closePanelBtn = e.target.closest('[data-action="close-notes-panel"]');
+  if(closePanelBtn){
+    closeNotesPanel();
+    render();
     return;
   }
 
